@@ -102,6 +102,10 @@ pub async fn detail(
         return Err(ApiError::NotFound(format!("未找到武器: {name}")));
     };
     let un = row.unique_name.clone();
+    let _ = sqlx::query(
+        "INSERT INTO api_query_stats (entity_type, entity_id, hits) VALUES ('weapons',$1,1)
+         ON CONFLICT (entity_type, entity_id) DO UPDATE SET hits = api_query_stats.hits + 1, last_at = now()")
+        .bind(&un).execute(&state.pool).await;
     let mut res = Resolver::new(&state.pool, lang.clone());
 
     // 伤害分量
@@ -165,6 +169,11 @@ pub async fn riven(
     let Some((un, name_zh, omega, prime_omega)) = row else {
         return Err(ApiError::NotFound(format!("未找到武器: {name}")));
     };
+    let _ = sqlx::query(
+        "INSERT INTO api_query_stats (entity_type, entity_id, hits) VALUES ('weapons',$1,1)
+         ON CONFLICT (entity_type, entity_id) DO UPDATE SET hits = api_query_stats.hits + 1, last_at = now()")
+        .bind(&un).execute(&state.pool).await;
+
     Ok(Json(json!({
         "weapon": un,
         "name": name_zh,

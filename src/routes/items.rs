@@ -106,6 +106,19 @@ pub async fn search(
         }
     }
 
+    // 热度统计：首个含游戏内路径的结果计一次（排行数据源）
+    if let Some(first) = results.first() {
+        if let Some(eid) = first.get("entity_id").and_then(|v| v.as_str()) {
+            if eid.starts_with("/Lotus") {
+                let etype = first.get("entity_type").and_then(|v| v.as_str()).unwrap_or("other");
+                let _ = sqlx::query(
+                    "INSERT INTO api_query_stats (entity_type, entity_id, hits) VALUES ($1,$2,1)
+                     ON CONFLICT (entity_type, entity_id) DO UPDATE SET hits = api_query_stats.hits + 1, last_at = now()")
+                    .bind(etype).bind(eid).execute(&state.pool).await;
+            }
+        }
+    }
+
     if results.is_empty() {
         return Err(ApiError::NotFound(format!("未找到物品: {q}")));
     }

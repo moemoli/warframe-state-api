@@ -302,7 +302,6 @@ DROP TABLE IF EXISTS public.achievements;
 DROP TABLE IF EXISTS public.achievement_children;
 DROP TABLE IF EXISTS public.abilities;
 DROP FUNCTION IF EXISTS public.loc(p_tag text, p_lang text);
-DROP EXTENSION IF EXISTS pg_trgm;
 -- Name: pg_trgm; Type: EXTENSION; Schema: -; Owner: -
 
 CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
@@ -310,7 +309,7 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm WITH SCHEMA public;
 
 -- Name: EXTENSION pg_trgm; Type: COMMENT; Schema: -; Owner: -
 
-COMMENT ON EXTENSION pg_trgm IS 'text similarity measurement and index searching based on trigrams';
+-- COMMENT ON EXTENSION pg_trgm IS 'text similarity measurement and index searching based on trigrams';
 
 
 -- Name: loc(text, text); Type: FUNCTION; Schema: public; Owner: -
@@ -3455,3 +3454,24 @@ CREATE INDEX IF NOT EXISTS idx_wfm_riven_items_type ON public.wfm_riven_items(ri
 CREATE INDEX IF NOT EXISTS idx_wfm_riven_attr_slug ON public.wfm_riven_attributes(slug);
 CREATE INDEX IF NOT EXISTS idx_wfm_lich_weapons_slug ON public.wfm_lich_weapons(slug);
 CREATE INDEX IF NOT EXISTS idx_wfm_sister_weapons_slug ON public.wfm_sister_weapons(slug);
+-- wfm 价格快照（趋势数据源：每次实时询价成功时写入当日快照）
+CREATE TABLE IF NOT EXISTS public.wfm_price_snapshots (
+    slug        TEXT NOT NULL,
+    kind        TEXT NOT NULL DEFAULT 'item',  -- item | riven
+    day         DATE NOT NULL,
+    sell_min    INT,
+    sell_avg    INT,
+    buy_max     INT,
+    PRIMARY KEY (slug, kind, day)
+);
+
+CREATE INDEX IF NOT EXISTS idx_wfm_snapshots_slug ON public.wfm_price_snapshots(slug, kind, day);
+
+-- 查询热度统计（排行数据源：详情类端点命中时自增）
+CREATE TABLE IF NOT EXISTS public.api_query_stats (
+    entity_type TEXT NOT NULL,
+    entity_id   TEXT NOT NULL,
+    hits        BIGINT NOT NULL DEFAULT 0,
+    last_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (entity_type, entity_id)
+);

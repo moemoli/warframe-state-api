@@ -1,7 +1,7 @@
 # astrbot_plugin_warframe_helper 设计文档
 
 > 版本 v0.2 · 对接 warframe-api（本项目 REST 服务）
-> 参考：`doc/api_usage.md`、[AstrBot 插件开发指南](https://docs.astrbot.app/dev/star/guides/simple.html)、
+> 参考：`doc/api/README.md`、[AstrBot 插件开发指南](https://docs.astrbot.app/dev/star/guides/simple.html)、
 > 《Warframe Rabbit(因幡帝)机器人4.0版使用说明》（指令形态参照，功能以本 API 能力为准）
 
 ---
@@ -115,11 +115,47 @@ QQ/TG/Discord...
 | `wiki <名>` | `wiki 绝路` | 复用 `/api/search?q=` | 取首个含 `wiki_link` 的结果，回复名称 + Wiki 链接（链接随 lang 自动切换 huiji/wiki.warframe.com/fandom） |
 | `掉落 <物品>` | `掉落 Forma` | `GET /api/items/{name}/drops` | 按 source_type 分组列出来源与概率 |
 | `wm <物品名>` | `wm 绝路` | search 解析 slug → `GET /api/wfm/items/{slug}` | 卖一/卖均/收一对比卡 + 前 3 单（价格·数量·状态）；未带 slug 先搜索取第一条 |
-| `wr` = `wmr` = `wk` <武器名> | `wr 绝路` | `GET /api/wfm/rivens?name=` | 三指令**完全等价**（兼容兔子用户肌肉记忆）：倾向值环形图·类型·段位·wiki 链接 |
+| `wr` = `wmr` = `wk` <武器名> [筛选...] | `wr 绝路` / `wr 2+ 双暴 绝路` | `GET /api/wfm/rivens?name=` + `GET /api/wfm/auctions/{slug}` | 三指令**完全等价**（兼容兔子用户肌肉记忆）。无筛选=倾向值环形图·类型·段位·wiki；带筛选=拍卖挂单过滤（全语法见 §5.2.1） |
 | `词条` | `词条` | `GET /api/wfm/rivens/attributes` | 全部 32 条：中文名 + 前缀/后缀 + 适用类型 |
 | `玄骸` | `玄骸 努寇` | `GET /api/wfm/liches?name=` | 赤毒武器列表/详情（名称·段位·wiki） |
 | `信条` | `信条 典客` | `GET /api/wfm/sisters?name=` | 姐妹武器列表/详情 |
 | `倾向 <武器>` | `倾向 斯特朗` | `GET /api/weapons/{name}/riven` | 官方 omega_attenuation |
+| `物品 <名>` | `物品 适应` | `GET /api/search?q=` | 取首个 wfm 命中：名称·描述·tags·wiki 链接（用途说明卡） |
+| `合成 <名>` `铸造 <名>` | `合成 Forma` | `GET /api/items/{name}/drops` | 只取 recipe_ingredient / recipe_result 两类来源，展示蓝图材料与产物 |
+| `结合目标 [每日/铭刻]` | `结合目标 铭刻` | `GET /api/synthesis?type=` | 缺省=全部；`每日`=6 大结合任务；`铭刻`=7 条推荐地点 |
+| `结合目标 <目标名>` | `结合目标 火焰轰击者` | `GET /api/synthesis?target=` | 按目标反查地点（子串匹配）：`枪兵`→LEX、`火焰轰击者`→CASSINI；输出 目标→[地点] 映射（去重） |
+| `wm趋势 <名>` | `wm趋势 绝路` | search → `GET /api/wfm/trends/{slug}` | 双数据源自动切换：普通物品走 wfm 官方统计（48h 小时级+90d 日级真实成交），紫卡/赤毒/姐妹回退本地快照 |
+| `紫卡趋势 <武器>` | `紫卡趋势 绝路` | rivens 解析 → `GET /api/wfm/trends/{slug}?kind=riven` | 同上（riven 命名空间） |
+| `词条价差 <武器>` | `词条价差 rubico` | `GET /api/wfm/spread/{slug}` | 各正面词条均价排行（基于实时拍卖聚合，≥2 样本） |
+| `部件 [金/银/铜]` | `部件 金` | `GET /api/wfm/components?tier=` | 杜卡德性价比筛选：金100/银45/铜15，缺省全列 |
+| `排行 [甲/卡/部件]` | `甲排行` | `GET /api/wfm/rankings?type=` | 本服务查询热度 TopN（冷启动为空属正常） |
+
+#### 5.2.1 wr 全语法（紫卡拍卖筛选，已可实现）
+
+`wr` / `wmr` / `wk` 支持兔子式完整筛选语法，**全部在插件侧解析、服务端数据已齐备**：
+
+```
+wr <武器名> [最新|最近|离线] [极性槽] [价格p] [洗数] [词条] [2+|2+1|3+|3+1] [-页码]
+wr 2+ 双暴 绝路            → 正面含暴率+暴伤、共 2 正面
+wr 基多暴带负 绝路          → 基伤+多重+暴率，带 1 负面
+wr 零洗 1000p r槽 绝路      → 未洗、买断≤1000白金、Madurai 极性
+```
+
+| 筛选维度 | 解析 | 匹配字段（auctions 端点） |
+|---|---|---|
+| 武器名 | `/api/wfm/rivens?name=` 解析 slug | 路径参数 `{slug}` |
+| 词条 | 中文简称→slug 词典（见下） | `attributes[].name_zh / name` |
+| N+/N+1/N+ | 数字解析 | 统计 attributes 中 negative=false/true 的数量 |
+| 洗数 | `零洗=0` `低洗≤5` `数字洗=N` | `rerolls` |
+| 价格 | `数字+p` | `price ≤ N` 且优先 `buyout=true` |
+| 极性槽 | `r槽=madurai` `-槽=naramon` `角槽=vazarin` `=槽=zenurik` | `polarity` |
+| 卖家状态 | `最新/在线`=`ingame,online`；`离线`=不过滤 | `status` |
+
+**词条中文词典**：首次使用时拉取 `/api/wfm/rivens/attributes?lang=zh` 构建
+`{效果中文名 → url_name}` 映射（32 条），并在插件内叠加社区短名别名表
+（基伤→base_damage_/_melee_damage、暴率→critical_chance、暴伤→critical_damage、
+多重→multishot、C伤→damage_corpus…）。拍卖端点返回的 `name_zh` 已可直接用于展示，
+筛选匹配用 url_name 保证准确。
 
 ### 5.3 订阅推送（蹲）
 
@@ -194,11 +230,8 @@ QQ/TG/Discord...
 
 | 指令 | 兔子功能 | 缺口 | 后期可行路径 |
 |---|---|---|---|
-| `物品 <名>` / `萌新` | 物品用途说明文案 | 无长描述语料 | wfm i18n.description + 后续接 wiki API |
 | `配卡 <名>` | 分流派配卡推荐 | 无攻略数据源 | 接 Overframe/Divek 数据或 LLM 生成 |
 | `伤害模拟` | 文字版幻影装置 DPS 计算 | 无计算引擎 | 纯客户端实现，工作量大 |
-| `结合目标` | 结合仪式目标地点 | 无数据源 | 官方 worldstate 无此节，需社区数据 |
-| `合成 / 铸造查询` | 蓝图材料/铸造信息 | **已有 recipes 表** | 可做：drops 端点已含配方；补独立排版即可 |
 | `浮印 <名>` | 浮印代码查询 | 无浮印库 | ExportCustoms 有数据可扩展端点 |
 | `三线琴 / 和弦琴` | 曲谱搜索试听 | 无曲谱库 | 需外部曲谱数据源 |
 | `教程 <关键词>` | B 站搜索 | 外部依赖 | 调 B 站搜索接口 |
@@ -208,16 +241,12 @@ QQ/TG/Discord...
 
 | 指令 | 兔子功能 | 缺口 | 后期可行路径 |
 |---|---|---|---|
-| `wr <武器> <词条筛选>` 全语法 | 词条/洗数/价格/极性槽过滤紫卡拍卖 | wfm 拍卖 API 未接入 | 接 `/v2/riven/auctions`（wfm 拍卖端点） |
+| `wr` 词条名中文化（如「基伤」→base_damage） | ~~已实现~~ | 拍卖端点已返回 `name_zh`（复用紫卡词条表 i18n），词典见 §5.2.1 | **已移入 §5.2.1** |
 | `rm <...>` | Riven.Market 挂单 | 第三方站无公开 v2 API | 单独适配器 |
 | `紫卡分析 <截图>` | OCR + 数值/价格评估 | OCR + 估价模型 | 文字识别 + 词条价差表 |
 | `模拟开卡` | 娱乐随机开紫卡 | — | 纯本地随机，工作量小，可提前 |
-| `wm趋势 / 紫卡趋势` | 价格走势图 | 无历史价存储 | 自建每日快照表，积累后绘图 |
-| `紫卡词条价差` | 哪个词条更值钱 | 同上需历史数据 | 快照表聚合 |
 | `紫卡价格 / 官方周报` | DE 官方成交报告 | 无数据源 | DE 论坛/社区抓取 |
 | `热门紫卡` | 按热度排序 | 无拍卖数据 | wr 拍卖接入后顺带 |
-| `部件 / 金垃圾 / 银垃圾 / 铜垃圾` | 杜卡德性价比筛选 | **已有 ducats 数据** | 可做：wfm_items 按 ducats/tax 查询，补端点+排版 |
-| `排行 / 甲排行 / 卡排行 ...` | 市场热门排行 | 无成交量数据 | wfm statistics 端点或自建快照 |
 
 ### 6.3 图片识别与娱乐类
 
@@ -414,9 +443,9 @@ plugin/astrbot/
 | M3 | 搜索/wiki/掉落/wm/紫卡(wr=wmr=wk)/玄骸/信条 + 模板 |
 | M4 | LLM Tools + README + 发布 metadata 校验 |
 | M5 | 蹲/订阅系统：简称解析词典 + 轮询引擎 + 命中推送卡（§5.3） |
-| M6 | 快做项：`合成`、`部件(垃圾筛选)`（§6.2 标注"可做"两项） |
+| ~~M6~~ | 已并入 M3：合成/部件/趋势/价差/排行/拍卖均已上线 |
 | M7（远期） | wfm 拍卖接入、价格趋势快照、OCR 系列、国服数据源 |
 
 ---
 
-*本文档对应代码仓库 `plugin/astrbot`；API 细节以 `doc/api_usage.md` 为准。*
+*本文档对应代码仓库 `plugin/astrbot`；API 细节以 `doc/api/README.md` 为准。*

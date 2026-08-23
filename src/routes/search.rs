@@ -16,6 +16,8 @@ pub struct SearchParams {
     lang: Option<String>,
     limit: Option<i64>,
     trade: Option<bool>,
+    /// 按来源筛选：逗号分隔 alias/official/wfm/riven/lich/sister（如 source=wfm,riven）
+    source: Option<String>,
 }
 
 /// GET /api/search?q=血妈&lang=zh&limit=20
@@ -42,12 +44,14 @@ pub async fn search(
     let alias_hits = aliases::find_alias(pool, &q).await?;
     let mut resolved_alias: Option<String> = None;
     let mut results: Vec<Value> = Vec::new();
+    let mut seen = std::collections::HashSet::new();
 
     if !alias_hits.is_empty() {
         resolved_alias = Some(q.clone());
         for (entity_type, entity_id) in &alias_hits {
             let name = resolve_entity_name(pool, entity_id, &lang).await;
             let wfm = wfm_by_game_ref(pool, entity_id, &lang).await;
+            seen.insert(format!("{}:{}", entity_type, entity_id));
             results.push(json!({
                 "source": "alias",
                 "entity_type": entity_type,
@@ -59,7 +63,8 @@ pub async fn search(
     }
 
     // 2+3) 官方库 + wfm 普通物品 + 紫卡武器 + 赤毒武器 + 姐妹武器 联合搜索
-    if results.is_empty() {
+    //      始终执行（别名命中也聚合其余来源），按 source+type+id 去重
+    {
         let rows: Vec<(String, String, String, Option<String>, String)> = sqlx::query_as(
             "SELECT source, entity_type, entity_id, wfm_id, name FROM (
                 -- 官方库
@@ -68,11 +73,12 @@ pub async fn search(
                 FROM v_localized
                 WHERE lang = $1 AND field = 'name' AND value ILIKE '%' || $2 || '%'
                 UNION ALL
-                -- wfm 普通物品
+                -- wfm 普通物品（名称/别名关联）
                 SELECT 'wfm', 'wfm', COALESCE(w.game_ref, ''), w.wfm_id, i.item_name
                 FROM wfm_items w
                 JOIN wfm_item_i18n i ON i.wfm_id = w.wfm_id AND i.lang = $1
                 WHERE i.item_name ILIKE '%' || $2 || '%' OR w.slug ILIKE '%' || $2 || '%'
+                   OR w.game_ref IN (SELECT entity_id FROM aliases WHERE lower(alias) = lower($2))
                 UNION ALL
                 -- 紫卡武器
                 SELECT 'riven', 'riven_weapon', w.slug, w.wfm_id, i.item_name
@@ -101,9 +107,8 @@ pub async fn search(
         .fetch_all(pool)
         .await?;
 
-        let mut seen = std::collections::HashSet::new();
         for (source, entity_type, entity_id, wfm_id, name) in rows {
-            let key = format!("{}:{}", entity_type, entity_id);
+            let key = format!("{source}:{entity_type}:{entity_id}");
             if !seen.insert(key) {
                 continue;
             }
@@ -137,6 +142,31 @@ pub async fn search(
                 "name": name,
                 "wfm": wfm,
             }));
+        }
+    }
+
+    // 热度统计：首个含游戏内路径的结果计一次（排行数据源）
+    if let Some(first) = results.first() {
+        if let Some(eid) = first.get("entity_id").and_then(|v| v.as_str()) {
+            if eid.starts_with("/Lotus") {
+                let etype = first.get("entity_type").and_then(|v| v.as_str()).unwrap_or("other");
+                let _ = sqlx::query(
+                    "INSERT INTO api_query_stats (entity_type, entity_id, hits) VALUES ($1,$2,1)
+                     ON CONFLICT (entity_type, entity_id) DO UPDATE SET hits = api_query_stats.hits + 1, last_at = now()")
+                    .bind(etype).bind(eid).execute(pool).await;
+            }
+        }
+    }
+
+    // source= 筛选：仅保留指定来源（逗号分隔多值）
+    if let Some(src) = p.source.as_deref() {
+        let allow: Vec<&str> = src.split(',').map(|x| x.trim()).filter(|x| !x.is_empty()).collect();
+        if !allow.is_empty() {
+            results.retain(|r| {
+                r.get("source").and_then(|v| v.as_str())
+                    .map(|s| allow.contains(&s))
+                    .unwrap_or(false)
+            });
         }
     }
 
