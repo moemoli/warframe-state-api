@@ -1,0 +1,12 @@
+name: astrbot_plugin_warframe_helper
+display_name: Warframe 助手
+short_desc: 星际战甲（Warframe）游戏数据查询：世界状态、突击、裂缝、仲裁、循环、物品价格。
+desc: >
+  星际战甲（Warframe）查询助手，对接 warframe-api 数据服务。
+  支持查询实时世界状态（警报/入侵/突击/执政官猎杀/虚空裂缝/午夜电波）、
+  虚空商人 Baro 到访、开放世界昼夜循环、仲裁轮换，
+  以及物品统一搜索（支持中文社区简称，如"血妈"）、
+  warframe.market 实时价格、紫卡倾向与赤毒/信条武器信息。
+version: v0.1.0
+author: warframe-api
+repo: https://github.com/example/astrbot_plugin_warframe_helper
