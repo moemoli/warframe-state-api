@@ -7,7 +7,7 @@
 # ============================================================
 
 # ---- Stage 1: 构建 Rust 二进制 ----
-FROM rust:1.87-bookworm AS builder
+FROM rust:1.88-bookworm AS builder
 
 WORKDIR /app
 COPY Cargo.toml Cargo.lock* ./
