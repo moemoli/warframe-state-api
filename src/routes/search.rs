@@ -162,9 +162,9 @@ pub async fn search(
 /// 通过 game_ref 查 wfm 数据
 async fn wfm_by_game_ref(pool: &PgPool, game_ref: &str, lang: &str) -> Value {
     let row: Option<(String, String, Vec<String>, bool, Option<String>,
-                     Option<i32>, Option<i32>, Option<String>, Option<String>)> = sqlx::query_as(
+                     Option<i32>, Option<i32>, Option<String>, Option<String>, Option<String>)> = sqlx::query_as(
         "SELECT w.wfm_id, w.slug, w.tags, w.tradable, w.rarity,
-                w.ducats, w.trading_tax, i.item_name, i.description
+                w.ducats, w.trading_tax, i.item_name, i.description, i.wiki_link
          FROM wfm_items w
          LEFT JOIN wfm_item_i18n i ON i.wfm_id = w.wfm_id AND i.lang = $2
          WHERE w.game_ref = $1 LIMIT 1",
@@ -175,10 +175,10 @@ async fn wfm_by_game_ref(pool: &PgPool, game_ref: &str, lang: &str) -> Value {
     .await.ok().flatten();
 
     match row {
-        Some((id, slug, tags, tradable, rarity, ducats, tax, name, desc)) => json!({
+        Some((id, slug, tags, tradable, rarity, ducats, tax, name, desc, wiki)) => json!({
             "wfm_id": id, "slug": slug, "tags": tags, "tradable": tradable,
             "rarity": rarity, "ducats": ducats, "trading_tax": tax,
-            "item_name": name, "description": desc,
+            "item_name": name, "description": desc, "wiki_link": wiki,
         }),
         None => Value::Null,
     }
@@ -188,9 +188,9 @@ async fn wfm_by_game_ref(pool: &PgPool, game_ref: &str, lang: &str) -> Value {
 async fn wfm_by_wfm_id(pool: &PgPool, wfm_id: &str, lang: &str) -> Value {
     let row: Option<(String, String, Option<String>, Vec<String>, bool,
                      Option<String>, Option<i32>, Option<i32>,
-                     Option<String>, Option<String>)> = sqlx::query_as(
+                     Option<String>, Option<String>, Option<String>)> = sqlx::query_as(
         "SELECT w.wfm_id, w.slug, w.game_ref, w.tags, w.tradable, w.rarity,
-                w.ducats, w.trading_tax, i.item_name, i.description
+                w.ducats, w.trading_tax, i.item_name, i.description, i.wiki_link
          FROM wfm_items w
          LEFT JOIN wfm_item_i18n i ON i.wfm_id = w.wfm_id AND i.lang = $2
          WHERE w.wfm_id = $1 LIMIT 1",
@@ -201,11 +201,11 @@ async fn wfm_by_wfm_id(pool: &PgPool, wfm_id: &str, lang: &str) -> Value {
     .await.ok().flatten();
 
     match row {
-        Some((id, slug, game_ref, tags, tradable, rarity, ducats, tax, name, desc)) => json!({
+        Some((id, slug, game_ref, tags, tradable, rarity, ducats, tax, name, desc, wiki)) => json!({
             "wfm_id": id, "slug": slug, "game_ref": game_ref,
             "tags": tags, "tradable": tradable, "rarity": rarity,
             "ducats": ducats, "trading_tax": tax,
-            "item_name": name, "description": desc,
+            "item_name": name, "description": desc, "wiki_link": wiki,
         }),
         None => Value::Null,
     }
@@ -226,18 +226,19 @@ async fn resolve_entity_name(pool: &PgPool, entity_id: &str, lang: &str) -> Opti
 /// 紫卡武器详情
 async fn riven_detail_by_id(pool: &PgPool, wfm_id: &str, lang: &str) -> Value {
     let row: Option<(String, String, Option<String>, Option<String>, Option<f32>,
-                     Option<i32>, Option<String>)> = sqlx::query_as(
+                     Option<i32>, Option<String>, Option<String>)> = sqlx::query_as(
         "SELECT w.wfm_id, w.slug, w.riven_type, w.\"group\", w.disposition,
-                w.mastery_level, i.item_name
+                w.mastery_level, i.item_name, i.wiki_link
          FROM wfm_riven_items w
          LEFT JOIN wfm_riven_item_i18n i ON i.wfm_id = w.wfm_id AND i.lang = $2
          WHERE w.wfm_id = $1 LIMIT 1",
     ).bind(wfm_id).bind(lang).fetch_optional(pool).await.ok().flatten();
 
     match row {
-        Some((id, slug, riven_type, group, disp, mastery, name)) => json!({
+        Some((id, slug, riven_type, group, disp, mastery, name, wiki)) => json!({
             "wfm_id": id, "slug": slug, "riven_type": riven_type, "group": group,
             "disposition": disp, "mastery_level": mastery, "item_name": name,
+            "wiki_link": wiki,
         }),
         None => Value::Null,
     }
@@ -245,16 +246,17 @@ async fn riven_detail_by_id(pool: &PgPool, wfm_id: &str, lang: &str) -> Value {
 
 /// 赤毒武器详情
 async fn lich_detail_by_id(pool: &PgPool, wfm_id: &str, lang: &str) -> Value {
-    let row: Option<(String, String, Option<i32>, Option<String>)> = sqlx::query_as(
-        "SELECT w.wfm_id, w.slug, w.mastery_level, i.item_name
+    let row: Option<(String, String, Option<i32>, Option<String>, Option<String>)> = sqlx::query_as(
+        "SELECT w.wfm_id, w.slug, w.mastery_level, i.item_name, i.wiki_link
          FROM wfm_lich_weapons w
          LEFT JOIN wfm_lich_weapon_i18n i ON i.wfm_id = w.wfm_id AND i.lang = $2
          WHERE w.wfm_id = $1 LIMIT 1",
     ).bind(wfm_id).bind(lang).fetch_optional(pool).await.ok().flatten();
 
     match row {
-        Some((id, slug, mastery, name)) => json!({
+        Some((id, slug, mastery, name, wiki)) => json!({
             "wfm_id": id, "slug": slug, "mastery_level": mastery, "item_name": name,
+            "wiki_link": wiki,
         }),
         None => Value::Null,
     }
@@ -262,16 +264,17 @@ async fn lich_detail_by_id(pool: &PgPool, wfm_id: &str, lang: &str) -> Value {
 
 /// 姐妹武器详情
 async fn sister_detail_by_id(pool: &PgPool, wfm_id: &str, lang: &str) -> Value {
-    let row: Option<(String, String, Option<i32>, Option<String>)> = sqlx::query_as(
-        "SELECT w.wfm_id, w.slug, w.mastery_level, i.item_name
+    let row: Option<(String, String, Option<i32>, Option<String>, Option<String>)> = sqlx::query_as(
+        "SELECT w.wfm_id, w.slug, w.mastery_level, i.item_name, i.wiki_link
          FROM wfm_sister_weapons w
          LEFT JOIN wfm_sister_weapon_i18n i ON i.wfm_id = w.wfm_id AND i.lang = $2
          WHERE w.wfm_id = $1 LIMIT 1",
     ).bind(wfm_id).bind(lang).fetch_optional(pool).await.ok().flatten();
 
     match row {
-        Some((id, slug, mastery, name)) => json!({
+        Some((id, slug, mastery, name, wiki)) => json!({
             "wfm_id": id, "slug": slug, "mastery_level": mastery, "item_name": name,
+            "wiki_link": wiki,
         }),
         None => Value::Null,
     }
