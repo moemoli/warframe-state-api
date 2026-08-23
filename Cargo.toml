@@ -1,0 +1,22 @@
+[package]
+name = "warframe-api"
+version = "0.1.0"
+edition = "2021"
+description = "Warframe API：WorldState 解析翻译 + 物品/节点/Mod/武器/掉落查询（Axum + PostgreSQL）"
+
+[dependencies]
+axum = "0.8"
+tokio = { version = "1", features = ["full"] }
+# 运行时查询（query_as）+ FromRow derive，无需编译期连库
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "postgres", "derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "gzip", "rustls-tls"] }
+chrono = "0.4"
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+dotenvy = "0.15"
+
+[profile.release]
+lto = true
