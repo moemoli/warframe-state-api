@@ -392,21 +392,116 @@ curl "http://127.0.0.1:8099/api/nodes/SolNode94?lang=zh"
 
 ---
 
-## 8. GET /api/items/{name} —— 物品查询（支持常用简写）
+## 8. GET /api/search —— 统一搜索（推荐）
 
-查询流程：① `aliases` 表精确匹配简写 → ② `v_localized` 名称模糊匹配。
+**一次查询同时覆盖 5 个数据源**：别名 → 官方库 → wfm 物品 → 紫卡武器 → 赤毒/姐妹武器。结果合并去重，每条自动关联 wfm 数据。
+
+| 参数 | 说明 |
+|---|---|
+| `q` | 搜索关键词（必填，支持中文/英文/简称） |
+| `lang` | 语言，默认 zh |
+| `limit` | 最大返回条数，默认 20，上限 50 |
+| `trade` | `true` 时仅返回有 wfm 数据的可交易结果（过滤 wfm=null） |
 
 ```bash
-curl "http://127.0.0.1:8099/api/items/血妈?lang=zh"     # 别名命中
-curl "http://127.0.0.1:8099/api/items/Garuda?lang=zh"     # 名称模糊
+curl "http://127.0.0.1:8099/api/search?q=血妈&lang=zh"              # 别名
+curl "http://127.0.0.1:8099/api/search?q=rubico&lang=zh"            # 紫卡+wfm
+curl "http://127.0.0.1:8099/api/search?q=kuva&lang=zh"              # 赤毒武器
+curl "http://127.0.0.1:8099/api/search?q=信条&lang=zh&trade=true"   # 仅可交易
+```
+
+### 数据源
+
+| source | 说明 | 数据量 |
+|---|---|---|
+| `alias` | 别名精确命中（116 条中文简称） | — |
+| `official` | 官方实体库（战甲/武器/Mod/资源等） | 3w+ |
+| `wfm` | warframe.market 可交易物品 | 3720 |
+| `riven` | 紫卡武器（含倾向值） | 414 |
+| `lich` | 赤毒玄骸武器 | 21 |
+| `sister` | 帕尔沃斯姐妹武器 | 11 |
+
+### 返回格式
+
+```json
+{
+  "query": "kuva",
+  "resolved_alias": null,
+  "count": 10,
+  "results": [
+    {
+      "source": "lich",
+      "entity_type": "lich_weapon",
+      "entity_id": "kuva_nukor",
+      "name": "赤毒·努寇微波枪",
+      "wfm": { "slug": "kuva_nukor", "mastery_level": 13, "item_name": "赤毒·努寇微波枪" }
+    },
+    {
+      "source": "riven",
+      "entity_type": "riven_weapon",
+      "entity_id": "rubico",
+      "name": "绝路",
+      "wfm": { "slug": "rubico", "riven_type": "rifle", "disposition": 0.95 }
+    }
+  ]
+}
+```
+
+| 字段 | 说明 |
+|---|---|
+| `source` | 命中来源 |
+| `entity_type` | 实体类型（warframes/weapons/wfm/riven_weapon/lich_weapon/sister_weapon） |
+| `wfm` | warframe.market 关联数据（`null` = 不可交易或未关联） |
+| `wfm.slug` | warframe.market URL 路径 |
+| `wfm.disposition` | 紫卡倾向值（仅 riven_weapon） |
+| `wfm.riven_type` | 紫卡类型：rifle/pistol/melee/shotgun（仅 riven_weapon） |
+| `wfm.mastery_level` | 段位要求（仅 lich/sister_weapon） |
+| `resolved_alias` | 别名命中时返回原始简称 |
+
+---
+
+## 9. GET /api/items/{name} —— 物品查询（旧版，兼容保留）
+
+三级查询流程，每条结果自动关联 warframe.market 数据：
+
+1. `aliases` 表精确匹配简写（如 `血妈` → Garuda）
+2. `v_localized` 名称模糊匹配（官方数据库）
+3. `wfm_items` + `wfm_item_i18n` 名称模糊匹配（warframe.market 数据库）
+
+官方数据库命中的结果通过 `game_ref` 自动关联 wfm 数据（ducats/trading_tax/tags 等）。
+
+```bash
+curl "http://127.0.0.1:8099/api/items/绝路?lang=zh"
 ```
 ```json
-{ "query": "血妈", "resolved_alias": "血妈", "results": [
-  { "entity_type": "warframes",
-    "entity_id": "/Lotus/Powersuits/Garuda/Garuda",
-    "name": "Garuda" }
+{ "query": "绝路", "resolved_alias": null, "results": [
+  { "entity_type": "resources",
+    "entity_id": "/Lotus/Types/Recipes/Weapons/WeaponParts/RubicoPrimeBarrel",
+    "name": "绝路 Prime 枪管",
+    "wfm": {
+      "wfm_id": "5baa8bbf4567de01ac283493",
+      "slug": "rubico_prime_barrel",
+      "tags": ["component", "weapon", "prime"],
+      "tradable": true,
+      "ducats": 25,
+      "trading_tax": 2000,
+      "item_name": "绝路 Prime 枪管",
+      "description": "一个 Prime 武器的制作部件。"
+    }
+  }
 ] }
 ```
+
+| 字段 | 说明 |
+|---|---|
+| `entity_type` | 来源表（warframes/weapons/upgrades/customs/bundles/wfm 等） |
+| `entity_id` | 游戏内 unique_name |
+| `name` | 物品名称（已翻译） |
+| `wfm` | warframe.market 关联数据（`null` 表示无可交易版本或未关联） |
+| `wfm.slug` | warframe.market URL 路径（可用于跳转或查价） |
+| `wfm.ducats` | 杜卡特值 |
+| `wfm.trading_tax` | 交易税 |
+| `wfm.tags` | 标签（mod/prime/relic/component 等） |
 
 ## 9. GET /api/items/{name}/drops —— 物品掉落/来源聚合
 
@@ -511,7 +606,190 @@ curl "http://127.0.0.1:8099/api/weapons/斯特朗/riven?lang=zh"
 
 ---
 
-## 16. 配置（环境变量 / .env）
+## 16. GET /api/wfm/items —— warframe.market 物品列表
+
+从本地数据库查询 warframe.market 物品数据（来源：[42bytes-team/wfm-items](https://github.com/42bytes-team/wfm-items)）。
+
+| 参数 | 说明 |
+|---|---|
+| `lang` | 语言（zh/en/ru/ko/de/fr/pt 等） |
+| `name` | 名称模糊搜索 |
+| `tag` | 标签过滤（如 `mod`、`prime`、`relic`） |
+| `tradable` | 可交易过滤（`true`/`false`） |
+| `limit` / `offset` | 分页（默认 20/0，上限 100） |
+
+```bash
+curl "http://127.0.0.1:8099/api/wfm/items?name=adaptation&lang=zh"
+```
+```json
+{ "items": [ {
+    "wfm_id": "5bc1ab93b919f200c18c10ef",
+    "slug": "adaptation",
+    "game_ref": "/Lotus/Upgrades/Mods/Warframe/AvatarResistanceOnDamageMod",
+    "tags": ["mod", "warframe", "rare"],
+    "tradable": true,
+    "rarity": "rare",
+    "trading_tax": 8000,
+    "item_name": "适应",
+    "icon": "items/images/en/adaptation....png",
+    "thumb": "items/images/en/thumbs/adaptation....128x128.png"
+} ], "total": 1, "limit": 20, "offset": 0 }
+```
+
+---
+
+## 17. GET /api/wfm/items/{slug} —— 物品详情 + 实时价格
+
+查本地数据库获取物品信息，同时实时请求 [warframe.market API v2](https://api.warframe.market/v2/) 获取最优买卖订单。
+
+| 参数 | 说明 |
+|---|---|
+| `lang` | 语言 |
+
+```bash
+curl "http://127.0.0.1:8099/api/wfm/items/adaptation?lang=zh"
+```
+```json
+{
+  "wfm_id": "5bc1ab93b919f200c18c10ef",
+  "slug": "adaptation",
+  "game_ref": "/Lotus/Upgrades/Mods/Warframe/AvatarResistanceOnDamageMod",
+  "item_name": "适应",
+  "description": "受伤后：+10% 对该种伤害类型的抗性...",
+  "wiki_link": "https://wiki.warframe.com/w/Adaptation",
+  "tags": ["mod", "warframe", "rare"],
+  "tradable": true,
+  "rarity": "rare",
+  "trading_tax": 8000,
+  "ducats": null,
+  "prices": {
+    "sell": {
+      "min": 4,
+      "avg": 4,
+      "orders": [
+        { "platinum": 4, "quantity": 9, "user": "DaJiBaZHENXIANG", "status": "ingame" }
+      ]
+    },
+    "buy": {
+      "max": 41,
+      "orders": [
+        { "platinum": 41, "quantity": 6, "user": "SpaceXero", "status": "ingame" }
+      ]
+    }
+  }
+}
+```
+
+| prices 字段 | 说明 |
+|---|---|
+| `sell.min` | 最低卖价（白金） |
+| `sell.avg` | 平均卖价 |
+| `buy.max` | 最高买价（白金） |
+| `sell/buy.orders` | 最优 5 条订单（含玩家名、数量、在线状态） |
+
+> 注：价格数据实时从 warframe.market 获取，受其 3 req/s 限流。`prices` 获取失败时返回 `null`。
+
+---
+
+## 18. GET /api/wfm/rivens —— 紫卡武器列表
+
+| 参数 | 说明 |
+|---|---|
+| `lang` | 语言 |
+| `name` | 名称模糊搜索 |
+| `type` | 紫卡类型过滤：`rifle`/`pistol`/`melee`/`shotgun` |
+| `limit` / `offset` | 分页 |
+
+```bash
+curl "http://127.0.0.1:8099/api/wfm/rivens?name=rubico&lang=zh"
+```
+```json
+{ "items": [ {
+    "wfm_id": "5c5ca81696e8d2003834fd90",
+    "slug": "rubico",
+    "game_ref": "/Lotus/Weapons/Tenno/LongGuns/FiveShotSniper/FiveShotSniper",
+    "riven_type": "rifle",
+    "group": "primary",
+    "disposition": 0.95,
+    "mastery_level": 6
+} ], "total": 1 }
+```
+
+## 19. GET /api/wfm/rivens/attributes —— 紫卡词条列表
+
+```bash
+curl "http://127.0.0.1:8099/api/wfm/rivens/attributes?lang=zh"
+```
+```json
+{ "attributes": [ {
+    "slug": "toxin",
+    "prefix": "Visi",
+    "suffix": "Tox",
+    "units": "percent",
+    "group": "default",
+    "exclusive_to": [],
+    "effect": "毒素伤害"
+} ], "total": 32 }
+```
+
+## 20. GET /api/wfm/rivens/{slug} —— 紫卡武器详情
+
+```bash
+curl "http://127.0.0.1:8099/api/wfm/rivens/rubico?lang=zh"
+```
+```json
+{
+  "slug": "rubico",
+  "riven_type": "rifle",
+  "group": "primary",
+  "disposition": 0.95,
+  "mastery_level": 6,
+  "item_name": "绝路",
+  "wiki_link": "https://warframe.huijiwiki.com/wiki/Rubico"
+}
+```
+
+## 21. GET /api/wfm/liches —— 赤毒玄骸武器列表
+
+```bash
+curl "http://127.0.0.1:8099/api/wfm/liches?name=kuva&lang=zh"
+```
+```json
+{ "items": [ {
+    "slug": "kuva_bramma",
+    "item_name": "赤毒·布拉玛",
+    "mastery_level": 15
+} ], "total": 21 }
+```
+
+## 22. GET /api/wfm/liches/{slug} —— 赤毒武器详情
+
+```bash
+curl "http://127.0.0.1:8099/api/wfm/liches/kuva_bramma?lang=zh"
+```
+
+## 23. GET /api/wfm/sisters —— 帕尔沃斯姐妹武器列表
+
+```bash
+curl "http://127.0.0.1:8099/api/wfm/sisters?name=tenet&lang=zh"
+```
+```json
+{ "items": [ {
+    "slug": "tenet_envoy",
+    "item_name": "信条·典客",
+    "mastery_level": 14
+} ], "total": 11 }
+```
+
+## 24. GET /api/wfm/sisters/{slug} —— 姐妹武器详情
+
+```bash
+curl "http://127.0.0.1:8099/api/wfm/sisters/tenet_envoy?lang=zh"
+```
+
+---
+
+## 25. 配置（环境变量 / .env）
 
 | 变量 | 默认 | 说明 |
 |---|---|---|
@@ -534,13 +812,19 @@ ALIAS_API_KEY=testkey123 BIND_ADDR=127.0.0.1:8099 ./temp/target/debug/warframe-a
 
 # 常用调用
 curl localhost:8099/health
+curl "localhost:8099/api/search?q=血妈&lang=zh"                     # 统一搜索（别名+官方+wfm+紫卡+玄骸）
+curl "localhost:8099/api/search?q=kuva&lang=zh&trade=true"          # 仅可交易结果
 curl "localhost:8099/api/worldstate?sections=alerts,fissures,cycles&lang=zh"
 curl "localhost:8099/api/arbitrations?lang=zh&limit=5"
 curl "localhost:8099/api/cycles"
 curl "localhost:8099/api/nodes/SolNode94?lang=zh"
-curl "localhost:8099/api/items/血妈?lang=zh"
 curl "localhost:8099/api/weapons/斯特朗/riven?lang=zh"
 curl "localhost:8099/api/mods?type=PRIMARY&limit=10&lang=zh"
+curl "localhost:8099/api/wfm/items/adaptation?lang=zh"              # wfm 物品详情+价格
+curl "localhost:8099/api/wfm/rivens?name=rubico&lang=zh"            # 紫卡武器
+curl "localhost:8099/api/wfm/rivens/attributes?lang=zh"             # 紫卡词条
+curl "localhost:8099/api/wfm/liches?name=kuva&lang=zh"              # 赤毒武器
+curl "localhost:8099/api/wfm/sisters?name=tenet&lang=zh"            # 姐妹武器
 ```
 
 ---

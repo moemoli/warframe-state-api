@@ -20,7 +20,7 @@ fn lang_of<'a>(state: &'a AppState, p: &'a ItemParams) -> String {
     p.lang.clone().unwrap_or_else(|| state.config.default_lang.clone())
 }
 
-/// GET /api/items/{name} —— 物品查询（支持简写）
+/// GET /api/items/{name} —— 物品查询（官方数据 + warframe.market 联合）
 pub async fn search(
     State(state): State<AppState>,
     Path(name): Path<String>,
@@ -41,15 +41,18 @@ pub async fn search(
         let mut res = Resolver::new(&state.pool, lang.clone());
         for (entity_type, entity_id) in alias_hits {
             let name = res.item(&entity_id).await.map(|(_, n)| n).flatten();
+            // 关联 wfm
+            let wfm = wfm_by_game_ref(&state.pool, &entity_id, &lang).await;
             results.push(json!({
                 "entity_type": entity_type,
                 "entity_id": entity_id,
                 "name": name,
+                "wfm": wfm,
             }));
         }
     }
 
-    // 2) 名称模糊（v_localized）
+    // 2) 名称模糊（v_localized）+ 关联 wfm
     if results.is_empty() {
         let rows: Vec<(String, String, String)> = sqlx::query_as(
             "SELECT entity_type, entity_id, value FROM v_localized
@@ -61,7 +64,45 @@ pub async fn search(
         .fetch_all(&state.pool)
         .await?;
         for (t, id, n) in rows {
-            results.push(json!({ "entity_type": t, "entity_id": id, "name": n }));
+            let wfm = wfm_by_game_ref(&state.pool, &id, &lang).await;
+            results.push(json!({
+                "entity_type": t, "entity_id": id, "name": n, "wfm": wfm,
+            }));
+        }
+    }
+
+    // 3) 直接查 wfm 表（名称/别名未命中时）
+    if results.is_empty() {
+        let wfm_rows: Vec<(String, String, Option<String>, Vec<String>, bool,
+                           Option<String>, Option<i32>, Option<i32>,
+                           Option<String>, Option<String>)> = sqlx::query_as(
+            "SELECT w.wfm_id, w.slug, w.game_ref, w.tags, w.tradable, w.rarity,
+                    w.ducats, w.trading_tax, i.item_name, i.description
+             FROM wfm_items w
+             LEFT JOIN wfm_item_i18n i ON i.wfm_id = w.wfm_id AND i.lang = $1
+             WHERE i.item_name ILIKE '%' || $2 || '%' OR w.slug ILIKE '%' || $2 || '%'
+             ORDER BY i.item_name NULLS LAST LIMIT 20",
+        )
+        .bind(&lang)
+        .bind(q)
+        .fetch_all(&state.pool)
+        .await?;
+        for (wfm_id, slug, game_ref, tags, tradable, rarity, ducats, tax, item_name, desc) in wfm_rows {
+            results.push(json!({
+                "entity_type": "wfm",
+                "entity_id": game_ref,
+                "name": item_name,
+                "wfm": {
+                    "wfm_id": wfm_id,
+                    "slug": slug,
+                    "tags": tags,
+                    "tradable": tradable,
+                    "rarity": rarity,
+                    "ducats": ducats,
+                    "trading_tax": tax,
+                    "description": desc,
+                },
+            }));
         }
     }
 
@@ -69,6 +110,39 @@ pub async fn search(
         return Err(ApiError::NotFound(format!("未找到物品: {q}")));
     }
     Ok(Json(json!({ "query": q, "resolved_alias": resolved_alias, "results": results })))
+}
+
+/// 通过 game_ref 关联 wfm 数据
+async fn wfm_by_game_ref(pool: &sqlx::PgPool, game_ref: &str, lang: &str) -> Value {
+    let row: Option<(String, String, Vec<String>, bool, Option<String>,
+                     Option<i32>, Option<i32>, Option<String>, Option<String>)> = sqlx::query_as(
+        "SELECT w.wfm_id, w.slug, w.tags, w.tradable, w.rarity,
+                w.ducats, w.trading_tax, i.item_name, i.description
+         FROM wfm_items w
+         LEFT JOIN wfm_item_i18n i ON i.wfm_id = w.wfm_id AND i.lang = $2
+         WHERE w.game_ref = $1 LIMIT 1",
+    )
+    .bind(game_ref)
+    .bind(lang)
+    .fetch_optional(pool)
+    .await
+    .ok()
+    .flatten();
+
+    match row {
+        Some((wfm_id, slug, tags, tradable, rarity, ducats, tax, item_name, desc)) => json!({
+            "wfm_id": wfm_id,
+            "slug": slug,
+            "tags": tags,
+            "tradable": tradable,
+            "rarity": rarity,
+            "ducats": ducats,
+            "trading_tax": tax,
+            "item_name": item_name,
+            "description": desc,
+        }),
+        None => Value::Null,
+    }
 }
 
 /// GET /api/items/{name}/drops —— 物品掉落/来源聚合
