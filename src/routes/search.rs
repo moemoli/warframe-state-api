@@ -82,8 +82,16 @@ pub async fn search(
                    OR EXISTS (
                        SELECT 1 FROM aliases a
                        WHERE lower(a.alias) = lower($2)
-                         AND lower(split_part(a.entity_id, '/', -1)) <> ''
-                         AND w.slug LIKE '%' || lower(split_part(a.entity_id, '/', -1)) || '%'
+                         AND (
+                             -- 战甲目录匹配：/Lotus/Powersuits/<Warframe>/... 取第4段
+                             (split_part(a.entity_id, '/', 3) = 'Powersuits'
+                              AND split_part(a.entity_id, '/', 4) <> ''
+                              AND lower(w.game_ref) LIKE '%/powersuits/' || lower(split_part(a.entity_id, '/', 4)) || '/%')
+                             OR
+                             -- 路径末段 → slug 匹配（兜底）
+                             (lower(split_part(a.entity_id, '/', -1)) <> ''
+                              AND w.slug LIKE '%' || lower(split_part(a.entity_id, '/', -1)) || '%')
+                         )
                    )
                 UNION ALL
                 -- 紫卡武器
