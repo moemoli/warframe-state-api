@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="sec">
+{% for a in items %}
+  <div class="row">
+    <div class="row-icon icon-purple">⬡</div>
+    <div class="row-body">
+
+      <div class="flex-between">
+        <div class="row-title"><span class="price-sm">{{ a.price }}p{% if not a.buyout %}<span class="badge badge-gray" style="margin-left:4px">竞</span>{% endif %}</span></div>
+        <div class="row-sub">
+          <span class="dot dot-{{ a.status or 'offline' }}"></span>{{ a.owner }}
+        </div>
+      </div>
+
+      <div class="mt-4" style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+        <span class="tag">R{{ a.rank }}</span>
+        <span class="tag">洗{{ a.rerolls }}</span>
+      {% for x in a.attributes %}
+        {% if x.negative %}
+        <span class="badge-red" style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:14px;font-size:0.85em">
+          <span style="opacity:.75;margin-right:3px">▼</span>{{ x.name_zh or x.name }} {{ x.value }}%
+        </span>
+        {% else %}
+        <span class="badge-purple" style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:14px;font-size:0.85em">
+          <span style="opacity:.75;margin-right:3px">▲</span>{{ x.name_zh or x.name }} +{{ x.value }}%
+        </span>
+        {% endif %}
+      {% endfor %}
+      </div>
+
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

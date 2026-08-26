@@ -1,0 +1,47 @@
+{
+  "api_base": {
+    "description": "warframe-api 地址",
+    "type": "string",
+    "default": "http://127.0.0.1:8080"
+  },
+  "lang": {
+    "description": "返回语言",
+    "type": "string",
+    "default": "zh"
+  },
+  "timeout": {
+    "description": "请求超时秒数",
+    "type": "int",
+    "default": 15
+  },
+  "max_lines": {
+    "description": "文本模式单条回复最大行数",
+    "type": "int",
+    "default": 40
+  },
+  "page_size": {
+    "description": "图片模式每页条目数",
+    "type": "int",
+    "default": 8
+  },
+  "render_mode": {
+    "description": "输出方式 auto/image/text",
+    "type": "string",
+    "default": "auto"
+  },
+  "theme": {
+    "description": "主题 dark/light",
+    "type": "string",
+    "default": "dark"
+  },
+  "t2i_endpoint": {
+    "description": "自建 text2img 端点（留空用 AstrBot 官方）",
+    "type": "string",
+    "default": ""
+  },
+  "alias_api_key": {
+    "description": "warframe-api 别名提交密钥（ALIAS_API_KEY，管理员加别称用）",
+    "type": "string",
+    "default": ""
+  }
+}

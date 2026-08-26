@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block body %}
+<style>
+.help-wrap{column-count:2;column-gap:10px}
+.help-wrap .sec{break-inside:avoid;margin:3px 0}
+.help-wrap .row{padding:5px 10px}
+.cmd-line{font-size:16px;line-height:1.3}
+.cmd-sub{font-size:14px;margin-top:1px}
+.sec-title{font-size:14px;padding:6px 10px 0}
+.badge{padding:1px 6px;font-size:12px}
+.tag{font-size:12px;padding:1px 5px}
+.arg{font-size:14px}
+</style>
+<div class="help-wrap">
+
+<div class="sec">
+  <div class="sec-title">🌍 世界状态</div>
+  <div class="row"><div class="row-body">
+    <div class="cmd-line"><b>警报</b>　<b>突击</b>　<b>猎杀</b>（执刑官）　<b>入侵</b>　<b>小小黑</b></div>
+    <div class="cmd-line"><b>裂隙</b>（裂缝）　<b>电波</b>　<b>新闻</b>（最近新闻）　<b>活动</b></div>
+    <div class="cmd-line"><b>奸商</b>　<b>特惠</b>（每日特惠）　<b>仲裁</b>（仲裁表）</div>
+  </div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-title">🔄 循环与轮换</div>
+  <div class="row"><div class="row-body">
+    <div class="cmd-line"><b>夜灵</b>（夜灵平原）— Cetus 昼夜</div>
+    <div class="cmd-line"><b>地球</b> — 地球昼夜</div>
+    <div class="cmd-line"><b>金星</b>（奥布山谷）— 温暖/寒冷</div>
+    <div class="cmd-line"><b>火卫二</b>（火卫）— Fass/Vome</div>
+    <div class="cmd-line"><b>扎里曼</b> — Corpus/Grineer</div>
+    <div class="cmd-line"><b>双衍王境</b>（双衍）— 五重心绪</div>
+    <div class="cmd-line"><b>循环</b>（平原时间）— 全部区域一览</div>
+  </div></div>
+</div>
+<div class="sec">
+  <div class="sec-title">🏛️ 赏金任务</div>
+  <div class="row"><div class="row-body">
+    <div class="cmd-line"><b>科研</b>（深层科研/时光科研/Archimedea）— 本周科研任务</div>
+    <div class="cmd-line"><b>赏金</b>（bounty）<span class="arg">&lt;组织名&gt;</span></div>
+    <div class="cmd-sub">开放世界：夜灵平原、金星、火卫二、坚守者(扎里曼)、六人组(1999)</div>
+    <div class="cmd-sub">关联集团：夜羽、殁世械灵、卡尔、科维兽、通风小子、索拉里斯之声</div>
+    <div class="cmd-sub">六人集团：均衡仲裁者、中枢苏达、新世间、佩兰数列、血色面纱、钢铁前线</div>
+    <div class="cmd-sub">不带参数会列出全部组织</div>
+  </div></div>
+</div>
+<div class="sec">
+  <div class="sec-title">🔄 双衍轮换</div>
+  <div class="row"><div class="row-body">
+    <div class="cmd-line"><b>本周轮换</b>（钢铁轮换/双衍轮换）— 本周钢铁+普通双衍物品</div>
+    <div class="cmd-sub">显示钢铁双衍灵化之源 + 普通双衍战甲强化 Mod</div>
+  </div></div>
+</div>
+<div class="sec">
+  <div class="sec-title">🏛️ 特殊轮换</div>
+  <div class="row"><div class="row-body">
+    <div class="cmd-line"><b>恶魔塔</b>（沉沦之地）— 深水危机层数挑战</div>
+    <div class="cmd-line"><b>日历</b>（1999日历）— Hex 日历事件</div>
+  </div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-title">🔍 资料查询</div>
+  <div class="row"><div class="row-body">
+    <div class="cmd-line"><b>查</b>（物品）<span class="arg">&lt;关键词&gt;</span> — 统一搜索，支持中文简称</div>
+    <div class="cmd-line"><span class="arg">trade=true</span> 仅可交易　<span class="arg">source=wfm,riven,lich,sister</span> 来源过滤</div>
+    <div class="cmd-sub">例：查 血妈 trade=true source=wfm</div>
+    <div class="cmd-line"><b>wiki</b> <span class="arg">&lt;关键词&gt;</span> — Wiki 链接</div>
+    <div class="cmd-line"><b>掉落</b>（合成/铸造）<span class="arg">&lt;物品&gt;</span> — 掉落来源</div>
+    <div class="cmd-line"><b>结合目标</b>（结合）<span class="arg">[目标]</span> — 每日结合点位</div>
+    <div class="cmd-line"><b>倾向</b> <span class="arg">&lt;武器&gt;</span> — 紫卡倾向系数</div>
+  </div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-title">💰 市场交易</div>
+  <div class="row"><div class="row-body">
+    <div class="cmd-line"><b>wm</b> <span class="arg">&lt;物品&gt;</span> — WM 实时价格（在线优先·低价在前）</div>
+    <div class="cmd-sub">显示最低卖/均价/最高收 + 前5卖买单，🟢游戏中 🟡在线 ⚫离线</div>
+    <div class="cmd-line"><b>wm趋势</b> <span class="arg">&lt;名&gt;</span> / <b>紫卡趋势</b> <span class="arg">&lt;武器&gt;</span> — 价格走势</div>
+    <div class="cmd-line"><b>垃圾</b>（金垃圾/银垃圾/铜垃圾）— Prime 部件杜卡德价格</div>
+    <div class="cmd-sub">不带参数展示三档摘要，带参数筛选单档</div>
+    <div class="cmd-line"><b>排行</b>（甲排行/卡排行/Mod排行/武排行）— 热度榜</div>
+  </div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-title">⚔️ 紫卡与玄骸</div>
+  <div class="row"><div class="row-body">
+    <div class="cmd-line"><b>wr</b>（wmr/wk）<span class="arg">&lt;武器&gt; [筛选]</span> — 紫卡拍卖</div>
+    <div class="cmd-line"><b>词条</b> — 全部紫卡词条前缀后缀</div>
+    <div class="cmd-line"><b>词条价差</b> <span class="arg">&lt;武器&gt;</span> — 各词条均价</div>
+    <div class="cmd-line"><b>玄骸</b> / <b>信条</b> — 赤毒/姐妹武器库</div>
+  </div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-title">🧪 wr 筛选</div>
+  <div class="row"><div class="row-body">
+    <div class="cmd-line"><span class="arg">2+</span> 至少2正　<span class="arg">3+1</span> 3正1负　<span class="arg">零洗</span> 未洗　<span class="arg">500p</span> 价格上限</div>
+    <div class="cmd-line">极性：<span class="arg">r槽/-槽/角槽/=槽</span>　词条：<span class="arg">基伤 暴率 暴伤 多重 触发 冰 火 电 毒</span></div>
+    <div class="cmd-sub">例：wr 弓 多重 2+ 零洗 300p</div>
+  </div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-title">🔔 订阅蹲守</div>
+  <div class="row"><div class="row-body">
+    <div class="cmd-line"><b>蹲钢月</b> / <b>蹲赛中</b> / <b>蹲三傻</b> / <b>蹲奸商</b> — 快捷订阅</div>
+    <div class="cmd-line"><b>蹲</b> <span class="arg">&lt;条件&gt;</span> — 自定义（如：蹲 裂隙 中纪）</div>
+    <div class="cmd-line"><b>蹲 列表</b> / <b>蹲 取消</b> — 管理</div>
+  </div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-title">👑 管理员</div>
+  <div class="row"><div class="row-body">
+    <div class="cmd-line"><b>wfa</b> <span class="arg">&lt;简称&gt;</span> <span class="arg">&lt;物品名&gt;</span></div>
+    <div class="cmd-sub">将简称绑定到搜索命中的第一个官方条目，例：wfa 猴 Wukong</div>
+    <div class="cmd-sub">需在插件配置中填写 alias_api_key，且服务端设置同名密钥</div>
+  </div></div>
+</div>
+<div class="sec">
+  <div class="sec-title">⚙️ 通用参数</div>
+  <div class="row"><div class="row-body">
+    <div class="cmd-line"><span class="arg">-en</span> 英文结果　<span class="arg">-数字</span> 翻页　<span class="arg">-1</span> 文字模式</div>
+    <div class="cmd-line">所有指令可加前缀 <b>/wf</b>，也可直接无前缀输入</div>
+  </div></div>
+</div>
+
+</div>
+
+</div>
+<style>.ftr{display:none}</style>
+{% endblock %}

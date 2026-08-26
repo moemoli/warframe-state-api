@@ -1,0 +1,4 @@
+# cargo 别名：一条命令编译并打包 AstrBot 插件 zip
+# 用法：cargo plugin-pack
+[alias]
+plugin-pack = "run --release --features pack-plugin --bin pack-plugin"

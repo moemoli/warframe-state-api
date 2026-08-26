@@ -33,6 +33,7 @@ pub async fn parse_all(
     root["goals"] = parse_goals(&mut res, &raw.goals, expand).await;
     root["descents"] = parse_descents(&mut res, &raw.descents).await;
     root["persistent_enemies"] = parse_persistent_enemies(&mut res, &raw.persistent_enemies).await;
+    root["conquests"] = parse_conquests(&mut res, &raw.conquests).await;
     root["cycles"] = json!(compute_cycles(Utc::now()).iter().map(|c| json!(c)).collect::<Vec<_>>());
     root["meta"] = json!({
         "source": "api.warframe.com/cdn/worldState.php",
@@ -373,7 +374,13 @@ async fn parse_sortie(res: &mut Resolver<'_>, s: Option<&RawSortie>, expand: boo
 // VoidTrader / DailyDeals
 // ---------------------------------------------------------------------------
 async fn parse_void_trader(res: &mut Resolver<'_>, vt: Option<&RawVoidTrader>) -> Value {
-    let Some(vt) = vt else { return Value::Null };
+    let Some(vt) = vt else {
+        return json!({
+            "character": "Baro Ki'Teer", "status": "absent",
+            "node": null, "manifest": [],
+            "activation": null, "expiry": null,
+        });
+    };
     let node = res.node(&vt.node).await;
     let mut manifest = vec![];
     for it in &vt.manifest {
@@ -588,10 +595,20 @@ async fn parse_descents(res: &mut Resolver<'_>, list: &[RawDescent]) -> Value {
             } else {
                 None
             };
+            let type_desc = if let Some(ref code) = c.r#type {
+                res.enum_desc("descent_type", code).await.unwrap_or_default()
+            } else {
+                String::new()
+            };
             let challenge_name = if let Some(ref code) = c.challenge {
                 res.enum_name("descent_challenge", code).await
             } else {
                 None
+            };
+            let challenge_desc = if let Some(ref code) = c.challenge {
+                res.enum_desc("descent_challenge", code).await.unwrap_or_default()
+            } else {
+                String::new()
             };
             // Specs：EnemySpec 路径末段 → descent_specs 翻译
             let mut specs_out = Vec::new();
@@ -611,11 +628,10 @@ async fn parse_descents(res: &mut Resolver<'_>, list: &[RawDescent]) -> Value {
                 "index": c.r#type.as_ref().map(|_| ()),  // placeholder, real index from JSON
                 "type": c.r#type,
                 "type_name": type_name,
+                "type_desc": type_desc,
                 "challenge": c.challenge,
                 "challenge_name": challenge_name,
-                "level": c.level,
-                "level_short": level_short,
-                "level_name": level_name,
+                "challenge_desc": challenge_desc,
                 "specs": specs_out,
                 "auras": auras_out,
             }));
@@ -709,4 +725,52 @@ async fn expand_deck_ref(res: &mut Resolver<'_>, deck: Option<&str>, expand: boo
         };
     }
     obj
+}
+
+// ---------------------------------------------------------------------------
+// Conquests (科研任务)
+// ---------------------------------------------------------------------------
+async fn parse_conquests(res: &mut Resolver<'_>, list: &[RawConquest]) -> Value {
+    let mut out = vec![];
+    for cq in list {
+        let cq_type = cq.r#type.as_deref().unwrap_or("");
+        let type_zh = res.enum_name("archimedea_type", cq_type).await;
+        let mut missions = vec![];
+        for m in &cq.missions {
+            let fac = m.faction.as_deref().unwrap_or("");
+            let mt = m.mission_type.as_deref().unwrap_or("");
+            let fac_zh = res.enum_name("faction", fac).await;
+            let mt_zh = res.enum_name("mission_type", mt).await;
+            let mut diffs = vec![];
+            for d in &m.difficulties {
+                let dt = d.diff_type.as_deref().unwrap_or("");
+                let dt_zh = res.enum_name("archimedea_difficulty", dt).await;
+                let dev = d.deviation.as_deref().unwrap_or("");
+                let dev_zh = res.enum_name("archimedea_deviation", dev).await;
+                let dev_desc = res.enum_desc("archimedea_deviation", dev).await.unwrap_or_default();
+                let mut risk_zh_list = vec![];
+                for r in &d.risks {
+                    let rzh = res.enum_name("archimedea_risk", r).await.unwrap_or_else(|| r.clone());
+                    let rdesc = res.enum_desc("archimedea_risk", r).await.unwrap_or_default();
+                    risk_zh_list.push(json!({"name": rzh, "desc": rdesc}));
+                }
+                diffs.push(json!({
+                    "type": dt, "type_zh": dt_zh,
+                    "deviation": dev, "deviation_zh": dev_zh, "deviation_desc": dev_desc,
+                    "risks": d.risks, "risks_zh": risk_zh_list,
+                }));
+            }
+            missions.push(json!({
+                "faction": fac, "faction_zh": fac_zh,
+                "mission_type": mt, "mission_type_zh": mt_zh,
+                "difficulties": diffs,
+            }));
+        }
+        out.push(json!({
+            "type": cq_type, "type_zh": type_zh,
+            "missions": missions,
+            "variables": cq.variables,
+        }));
+    }
+    json!(out)
 }

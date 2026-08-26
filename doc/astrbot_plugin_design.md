@@ -201,13 +201,18 @@ wr 零洗 1000p r槽 绝路      → 未洗、买断≤1000白金、Madurai 极�
 - 一次轮询合并所有同 kind 订阅（单次 API 调用服务 N 个订阅者）
 - 存储使用 AstrBot 插件存储 API（SQLite），重启不丢
 
-#### 5.3.4 输出样式（subscribe_hit 卡片）
+#### 5.3.4 输出样式（纯文字 + @订阅者）
+
+订阅命中**不发图片**，直接以纯文本消息 @ 订阅者：
 
 ```
-🔔 订阅命中【钢月】
-[前纪 · 生存] 月球 · Copernicus · 剩余 42 分钟
-（发送『蹲 取消』可清空订阅）
+@张三
+【🔔 订阅命中】
+前纪 · 生存 | 月球 · Copernicus | 剩余 42 分钟
+（发送『蹲 取消』可清空）
 ```
+
+At 组件被平台拒绝时自动回退为不带 @ 的纯文本；推送不经过渲染管线。
 
 ### 5.4 国服指令（本期占位）
 
@@ -448,4 +453,4 @@ plugin/astrbot/
 
 ---
 
-*本文档对应代码仓库 `plugin/astrbot`；API 细节以 `doc/api/README.md` 为准。*
+*本文档对应代码仓库 `plugin/astrbot`；模块级实现细节见 [doc/plugin_implementation.md](plugin_implementation.md)；API 契约以 [doc/api/README.md](api/README.md) 为准。*

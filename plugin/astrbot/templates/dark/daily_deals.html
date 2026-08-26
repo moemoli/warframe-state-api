@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="sec">
+{% for d in items %}
+  <div class="row">
+    <div class="row-icon icon-red">-{{ d.discount }}%</div>
+    <div class="row-body">
+      <div class="flex-between">
+        <div class="row-title">{{ d.name }}</div>
+        <span class="price-sm">{{ d.sale_price }}p <span class="tag">原{{ d.original_price }}p</span></span>
+      </div>
+      <div class="row-sub">已售 {{ d.sold }}/{{ d.total }}</div>
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

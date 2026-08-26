@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="sec">
+{% for c in items %}
+  <div class="row">
+    <div class="row-icon icon-gold">◎</div>
+    <div class="row-body">
+      <div class="row-title">{{ c.name }} <span class="badge badge-gold">{{ c.state }}</span></div>
+      <div class="row-sub">剩余 {{ c.remaining }}</div>
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

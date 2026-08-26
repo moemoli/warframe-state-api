@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="sec">
+{% for w in items %}
+  <div class="row">
+    <div class="row-icon icon-red">☣</div>
+    <div class="row-body">
+      <div class="row-title">{{ w.name or w.item_name }} <span class="badge badge-gray">段位{{ w.mastery or w.mastery_level or '?' }}</span></div>
+      {% if w.slug %}<div class="row-sub">{{ w.slug }}</div>{% endif %}
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

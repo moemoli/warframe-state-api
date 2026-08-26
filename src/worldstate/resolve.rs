@@ -86,6 +86,13 @@ impl<'a> Resolver<'a> {
     }
 
     /// 节点 ID → regions 查询
+    /// 枚举描述查询（worldstate_enums.description）
+    pub async fn enum_desc(&mut self, category: &str, code: &str) -> Option<String> {
+        let row: Option<(Option<String>,)> = sqlx::query_as(
+            "SELECT description FROM worldstate_enums WHERE category = $1 AND enum_code = $2")
+            .bind(category).bind(code).fetch_optional(self.pool).await.ok().flatten();
+        row.and_then(|r| r.0).filter(|s| !s.is_empty())
+    }
     pub async fn node(&mut self, id: &str) -> Option<NodeRef> {
         let row: Option<(String,)> =
             sqlx::query_as("SELECT COALESCE(name_loc, '') FROM regions WHERE unique_name = $1")

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="sec">
+{% for c in items %}
+  <div class="row">
+    <div class="row-icon icon-gold">⚙</div>
+    <div class="row-body">
+      <div class="flex-between">
+        <div class="row-title">{{ c.name }}</div>
+        <span class="price-sm">{{ c.ducats }}杜</span>
+      </div>
+      <div class="row-sub">税 {{ c.tax }}</div>
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

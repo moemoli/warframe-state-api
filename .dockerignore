@@ -3,3 +3,4 @@ temp/
 .git/
 *.log
 .env
+dist/

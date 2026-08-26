@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="sec">
+{% for r in items %}
+  <div class="row">
+    <div class="row-icon {% if r.source == 'wfm' %}icon-green{% elif r.source == 'alias' %}icon-gold{% elif r.source == 'official' %}icon-blue{% else %}icon-purple{% endif %}">
+      {% if r.source == 'wfm' %}💰{% elif r.source == 'alias' %}📌{% elif r.source == 'official' %}📚{% else %}⚔{% endif %}
+    </div>
+    <div class="row-body">
+      <div class="row-title">{{ r.name }} <span class="badge {% if r.tradable %}badge-green{% else %}badge-gray{% endif %}">{{ r.badge }}</span></div>
+      <div class="row-sub">{{ r.entity_type }}{% if r.slug %} · {{ r.slug }}{% endif %}</div>
+      {% if r.wiki %}<div class="row-sub"><a href="{{ r.wiki }}">📖 Wiki</a></div>{% endif %}
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

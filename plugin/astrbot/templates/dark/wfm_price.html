@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block body %}
+{% if desc %}<div class="note" style="border-top:none">{{ desc[:120] }}</div>{% endif %}
+<div class="stat-grid">
+  <div class="stat"><div class="stat-val">{{ sell_min or '-' }}</div><div class="stat-label">最低卖</div></div>
+  <div class="stat"><div class="stat-val">{{ sell_avg or '-' }}</div><div class="stat-label">均价</div></div>
+  <div class="stat"><div class="stat-val">{{ buy_max or '-' }}</div><div class="stat-label">最高收</div></div>
+</div>
+{% if sell_orders %}
+<div class="sec">
+  <div class="sec-title">— 卖单 —</div>
+{% for o in sell_orders[:5] %}
+  <div class="row">
+    <div class="row-icon icon-green">↑</div>
+    <div class="row-body">
+      <div class="flex-between">
+        <div class="row-title">{{ o.platinum }}p ×{{ o.quantity }}</div>
+        <div class="row-sub">{% if o.status == 'ingame' %}<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#4caf50;margin-right:4px;vertical-align:middle"></span>{% elif o.status == 'online' %}<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#ffc107;margin-right:4px;vertical-align:middle"></span>{% else %}<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#666;margin-right:4px;vertical-align:middle"></span>{% endif %} {{ o.user }}</div>
+      </div>
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endif %}
+{% if buy_orders %}
+<div class="sec">
+  <div class="sec-title">— 买单 —</div>
+{% for o in buy_orders[:5] %}
+  <div class="row">
+    <div class="row-icon icon-red">↓</div>
+    <div class="row-body">
+      <div class="flex-between">
+        <div class="row-title">{{ o.platinum }}p ×{{ o.quantity }}</div>
+        <div class="row-sub">{% if o.status == 'ingame' %}<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#4caf50;margin-right:4px;vertical-align:middle"></span>{% elif o.status == 'online' %}<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#ffc107;margin-right:4px;vertical-align:middle"></span>{% else %}<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#666;margin-right:4px;vertical-align:middle"></span>{% endif %} {{ o.user }}</div>
+      </div>
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endif %}
+{% endblock %}

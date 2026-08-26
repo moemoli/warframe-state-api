@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="sec">
+  <div class="row" style="background:var(--bg3)">
+    <div class="row-icon icon-gold">⚡</div>
+    <div class="row-body">
+      <div class="row-title">{{ boss }}</div>
+      <div class="row-sub">结束：{{ expiry_rel }}</div>
+    </div>
+  </div>
+{% for v in items %}
+  <div class="row">
+    <div class="row-icon icon-blue">{{ v.idx }}</div>
+    <div class="row-body">
+      <div class="row-title">{{ v.node }} <span class="badge badge-blue">{{ v.mission_type }}</span></div>
+      <div class="row-sub">修正：{{ v.modifier }}</div>
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% if notes %}
+<div class="sec">
+{% for n in notes %}
+  {% if n %}<div class="note">{{ n }}</div>{% endif %}
+{% endfor %}
+</div>
+{% endif %}
+{% endblock %}

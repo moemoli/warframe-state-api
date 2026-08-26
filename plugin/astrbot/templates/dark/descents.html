@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="sec">
+{% for c in items %}
+  <div class="row" style="flex-direction:column;gap:4px">
+    <div class="flex-between" style="width:100%">
+      <div class="row-title"><span class="badge badge-purple">第{{ c.index }}层</span> {{ c.type_name }}</div>
+    </div>
+    <div class="row-sub"><span class="badge badge-gray">{{ c.challenge_name }}</span></div>
+    {% if c.type_desc %}
+    <div class="cq-desc">{{ c.type_desc }}</div>
+    {% endif %}
+    {% if c.challenge_desc %}
+    <div class="cq-desc" style="color:var(--red)">{{ c.challenge_desc }}</div>
+    {% endif %}
+    {% if c.auras %}
+    <div class="cq-desc" style="color:var(--purple)">氛围：{{ c.auras }}</div>
+    {% endif %}
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

@@ -43,6 +43,8 @@ pub struct RawWorldState {
     pub flash_sales: Vec<Value>,
     #[serde(default)]
     pub global_upgrades: Vec<Value>,
+    #[serde(default)]
+    pub conquests: Vec<RawConquest>,
     /// 未建模节原样保留
     #[serde(flatten)]
     pub extra: HashMap<String, Value>,
@@ -389,4 +391,43 @@ pub struct RawPersistentEnemy {
     pub health_percent: Option<String>,
     pub activation: Option<RawDate>,
     pub expiry: Option<RawDate>,
+}
+
+// ---- Conquests (科研任务) ----
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "PascalCase")]
+pub struct RawConquest {
+    #[serde(default)]
+    pub r#type: Option<String>,
+    #[serde(default)]
+    pub missions: Vec<RawConquestMission>,
+    #[serde(default)]
+    pub variables: Vec<String>,
+    #[serde(default)]
+    pub activation: Option<RawDate>,
+    #[serde(default)]
+    pub expiry: Option<RawDate>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RawConquestMission {
+    #[serde(default)]
+    pub faction: Option<String>,
+    #[serde(default)]
+    pub mission_type: Option<String>,
+    #[serde(default)]
+    pub difficulties: Vec<RawConquestDifficulty>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RawConquestDifficulty {
+    #[serde(rename = "type")]
+    #[serde(default)]
+    pub diff_type: Option<String>,
+    #[serde(default)]
+    pub deviation: Option<String>,
+    #[serde(default)]
+    pub risks: Vec<String>,
 }

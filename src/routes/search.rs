@@ -73,12 +73,18 @@ pub async fn search(
                 FROM v_localized
                 WHERE lang = $1 AND field = 'name' AND value ILIKE '%' || $2 || '%'
                 UNION ALL
-                -- wfm 普通物品（名称/别名关联）
+                -- wfm 普通物品（名称/别名关联 + 别名基础名→slug 匹配）
                 SELECT 'wfm', 'wfm', COALESCE(w.game_ref, ''), w.wfm_id, i.item_name
                 FROM wfm_items w
                 JOIN wfm_item_i18n i ON i.wfm_id = w.wfm_id AND i.lang = $1
                 WHERE i.item_name ILIKE '%' || $2 || '%' OR w.slug ILIKE '%' || $2 || '%'
                    OR w.game_ref IN (SELECT entity_id FROM aliases WHERE lower(alias) = lower($2))
+                   OR EXISTS (
+                       SELECT 1 FROM aliases a
+                       WHERE lower(a.alias) = lower($2)
+                         AND lower(split_part(a.entity_id, '/', -1)) <> ''
+                         AND w.slug LIKE '%' || lower(split_part(a.entity_id, '/', -1)) || '%'
+                   )
                 UNION ALL
                 -- 紫卡武器
                 SELECT 'riven', 'riven_weapon', w.slug, w.wfm_id, i.item_name

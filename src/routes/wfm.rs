@@ -305,7 +305,7 @@ async fn fetch_wfm_top_orders(
         Err(_) => return json!(null),
     };
 
-    let url = format!("https://api.warframe.market/v2/{}/{}/top", endpoint, slug);
+    let url = format!("https://api.warframe.market/v2/orders/item/{}", slug);
     let resp = match client.get(&url)
         .header("Platform", "pc")
         .header("Language", "zh-hans")
@@ -320,7 +320,11 @@ async fn fetch_wfm_top_orders(
         Ok(b) => b,
         Err(_) => return json!(null),
     };
-    let data = body.get("data").cloned().unwrap_or(Value::Null);
+    // v2 API: data 是扁平数组，type 字段为 "sell"/"buy"
+    let data = match body.get("data").and_then(|v| v.as_array()) {
+        Some(arr) => arr,
+        None => return json!(null),
+    };
 
     let simplify = |o: &Value| -> Value {
         json!({
@@ -331,10 +335,12 @@ async fn fetch_wfm_top_orders(
         })
     };
 
-    let sell: Vec<Value> = data.get("sell").and_then(|v| v.as_array())
-        .map(|a| a.iter().map(simplify).collect()).unwrap_or_default();
-    let buy: Vec<Value> = data.get("buy").and_then(|v| v.as_array())
-        .map(|a| a.iter().map(simplify).collect()).unwrap_or_default();
+    let sell: Vec<Value> = data.iter()
+        .filter(|o| o.get("type").and_then(|v| v.as_str()) == Some("sell"))
+        .map(simplify).collect();
+    let buy: Vec<Value> = data.iter()
+        .filter(|o| o.get("type").and_then(|v| v.as_str()) == Some("buy"))
+        .map(simplify).collect();
 
     let sell_min = sell.iter().filter_map(|o| o.get("platinum").and_then(|v| v.as_i64())).min();
     let sell_avg = if !sell.is_empty() {

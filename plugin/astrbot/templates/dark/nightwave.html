@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="sec">
+{% for c in items %}
+  <div class="row">
+    <div class="row-icon icon-purple">◈</div>
+    <div class="row-body">
+      <div class="flex-between">
+        <div class="row-title">{{ c.name }}</div>
+        <span class="badge badge-purple">{{ c.standing }}</span>
+      </div>
+      {% if c.description %}<div class="row-sub">{{ c.description[:80] }}</div>{% endif %}
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

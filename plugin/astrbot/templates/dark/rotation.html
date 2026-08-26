@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="sec">
+  <div class="sec-title">⚔️ 钢铁双衍 · 第 {{ steel_week }}/{{ total_steel }} 周</div>
+{% for w in steel %}
+  <div class="row">
+    <div class="row-icon icon-red">◆</div>
+    <div class="row-body">
+      <div class="row-title">{{ w }}</div>
+    </div>
+  </div>
+{% endfor %}
+</div>
+
+<div class="sec">
+  <div class="sec-title">🌀 普通双衍 · 第 {{ normal_week }}/{{ total_normal }} 周</div>
+{% for w in normal %}
+  <div class="row">
+    <div class="row-icon icon-blue">◆</div>
+    <div class="row-body">
+      <div class="flex-between">
+        <div class="row-title">{{ w.warframe }}</div>
+        <span class="badge badge-gold">{{ w.mod }}</span>
+      </div>
+    </div>
+  </div>
+{% endfor %}
+</div>
+
+<div class="note">每周 UTC 周一 00:00 重置（北京时间周一 08:00）</div>
+{% endblock %}

@@ -7,6 +7,6 @@ desc: >
   虚空商人 Baro 到访、开放世界昼夜循环、仲裁轮换，
   以及物品统一搜索（支持中文社区简称，如"血妈"）、
   warframe.market 实时价格、紫卡倾向与赤毒/信条武器信息。
-version: v0.1.0
+version: v0.2.0
 author: warframe-api
 repo: https://github.com/example/astrbot_plugin_warframe_helper

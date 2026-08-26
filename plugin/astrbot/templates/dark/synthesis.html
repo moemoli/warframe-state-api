@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="sec">
+{% for line in lines %}
+  {% if line %}
+  <div class="row"><div class="row-body"><div class="row-title" style="font-size:21px">{{ line }}</div></div></div>
+  {% endif %}
+{% endfor %}
+</div>
+{% endblock %}

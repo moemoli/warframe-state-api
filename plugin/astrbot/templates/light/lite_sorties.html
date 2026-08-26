@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="sec">
+{% for v in items %}
+  <div class="row">
+    <div class="row-icon icon-red">⚔</div>
+    <div class="row-body">
+      <div class="row-title">{{ v.node }} <span class="badge badge-red">{{ v.mission_type }}</span></div>
+      <div class="row-sub">Boss：{{ v.boss }}</div>
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1,height=1,initial-scale=1">
+<title>{{ title or 'Warframe' }}</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════
+   Warframe Light Theme — 浅色主题设计参考
+   
+   设计要点：
+   - 主色：#a07818（深金色，浅底上对比度更高）
+   - 背景：#f5f0e6 → #ede8de → #e4dfd5 暖色奶油灰阶
+   - 强调色：同深色系但加深（green→#2e7d32, red→#c0392b）
+   - 布局：与深色共用 .sec/.row/.badge 等类名
+   - 区别：border 更浅、文字更深、badge 用 rgba 低透明度
+   ═══════════════════════════════════════════════════════════════ */
+:root{
+  --bg:#f5f0e6;--bg2:#ede8de;--bg3:#e4dfd5;
+  --border:#d0c8b8;--border2:#b8b0a0;
+  --text:#1a1a1a;--text2:#5a5548;--text3:#8a8578;
+  --gold:#a07818;--gold2:#785810;--gold-bg:rgba(160,120,24,.10);
+  --red:#c0392b;--red-bg:rgba(192,57,43,.08);
+  --green:#2e7d32;--green-bg:rgba(46,125,50,.08);
+  --blue:#1565c0;--blue-bg:rgba(21,101,192,.08);
+  --purple:#6a1b9a;--purple-bg:rgba(106,27,154,.08);
+  --tag-bg:#e8e2d6;--tag-border:#c8c0b0;
+  --radius:6px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Microsoft YaHei','PingFang SC','Noto Sans SC',sans-serif;padding:0;width:640px;line-height:1.5}
+.hdr{background:var(--bg2);border-bottom:2px solid var(--gold);padding:18px 22px;position:relative;overflow:hidden}
+.hdr::after{content:'';position:absolute;top:0;right:0;width:80px;height:100%;background:linear-gradient(135deg,transparent 40%,var(--gold-bg));pointer-events:none}
+.hdr h1{font-size:27px;color:var(--gold);font-weight:700;letter-spacing:.5px}
+.hdr .sub{font-size:20px;color:var(--text2);margin-top:3px}
+.sec{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);margin:8px 10px;padding:0;overflow:hidden}
+.sec-title{font-size:21px;color:var(--text2);padding:8px 14px 0;font-weight:600;letter-spacing:.3px}
+.row{display:flex;align-items:flex-start;padding:10px 14px;border-bottom:1px solid var(--border);gap:8px}
+.row:last-child{border-bottom:none}
+.row-icon{flex-shrink:0;width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:700;margin-top:1px}
+.row-body{flex:1;min-width:0}
+.row-title{font-size:23px;font-weight:600;color:var(--text);line-height:1.4}
+.row-sub{font-size:20px;color:var(--text2);margin-top:2px;line-height:1.4}
+.row-right{flex-shrink:0;text-align:right}
+.badge{display:inline-block;padding:3px 10px;border-radius:10px;font-size:18px;font-weight:600;white-space:nowrap}
+.badge-gold{background:var(--gold-bg);color:var(--gold);border:1px solid rgba(160,120,24,.25)}
+.badge-green{background:var(--green-bg);color:var(--green);border:1px solid rgba(46,125,50,.25)}
+.badge-red{background:var(--red-bg);color:var(--red);border:1px solid rgba(192,57,43,.25)}
+.badge-blue{background:var(--blue-bg);color:var(--blue);border:1px solid rgba(21,101,192,.25)}
+.badge-purple{background:var(--purple-bg);color:var(--purple);border:1px solid rgba(106,27,154,.25)}
+.badge-gray{background:var(--tag-bg);color:var(--text2);border:1px solid var(--tag-border)}
+.price{color:var(--gold);font-weight:700;font-size:25px}
+.price-sm{color:var(--gold);font-weight:600;font-size:21px}
+.pbar{height:8px;background:var(--border);border-radius:3px;overflow:hidden;margin:6px 0}
+.pbar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--gold),var(--gold2))}
+.stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:10px 14px}
+.stat{text-align:center}
+.stat-val{font-size:29px;font-weight:700;color:var(--gold);line-height:1.2}
+.stat-label{font-size:18px;color:var(--text2);margin-top:2px}
+.note{font-size:20px;color:var(--text2);padding:10px 14px;line-height:1.6;border-top:1px solid var(--border)}
+.ftr{text-align:center;font-size:18px;color:var(--text3);padding:10px 14px;border-top:1px solid var(--border)}
+a{color:var(--blue);text-decoration:none}
+.tag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:18px;background:var(--tag-bg);color:var(--text2);border:1px solid var(--tag-border);margin:1px}
+.icon-gold{background:var(--gold-bg);color:var(--gold)}
+.icon-red{background:var(--red-bg);color:var(--red)}
+.icon-green{background:var(--green-bg);color:var(--green)}
+.icon-blue{background:var(--blue-bg);color:var(--blue)}
+.icon-purple{background:var(--purple-bg);color:var(--purple)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:middle}
+.dot-ingame{background:#4caf50}
+.dot-online{background:#ffc107}
+.dot-offline{background:#666}
+.cmd-line{font-size:17px;line-height:1.35;color:var(--text)}
+.cmd-line b{color:var(--gold)}
+.arg{color:var(--blue);background:var(--blue-bg);padding:1px 8px;border-radius:4px;font-size:0.9em}
+.cmd-sub{font-size:15px;color:var(--text2);margin-top:3px;margin-left:2px}
+.alias-grid{display:flex;flex-wrap:wrap;gap:6px}
+.help-wrap{padding:0}
+.help-wrap .sec{margin:2px 4px}
+.cq-desc{color:var(--text2);font-size:13px;line-height:1.5;padding:3px 0 3px 8px;border-left:2px solid var(--gold);margin:2px 0;background:var(--bg3)}
+.flex{display:flex;align-items:center;gap:6px}
+.flex-between{display:flex;align-items:center;justify-content:space-between}
+.mt-4{margin-top:4px}
+</style>
+</head>
+<body>
+{% if title %}
+<div class="hdr">
+  <h1>{{ title }}</h1>
+  {% if subtitle %}<div class="sub">{{ subtitle }}</div>{% endif %}
+</div>
+{% endif %}
+{% block body %}{% endblock %}
+<div class="ftr">warframe-api · 数据来自 warframe.market &amp; 官方 API</div>
+</body>
+</html>

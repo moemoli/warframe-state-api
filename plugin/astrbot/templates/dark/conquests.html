@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block body %}
+{% for g in groups %}
+<div class="sec">
+  <div class="sec-title">{% if '深层' in g.type_zh %}🔬{% else %}⏰{% endif %} {{ g.type_zh }}</div>
+  {% for r in g.rows %}
+  <div class="row" style="flex-direction:column;gap:4px">
+    <div class="flex-between" style="width:100%">
+      <div class="row-title">{{ r.mission }}</div>
+      <span class="badge badge-gray">{{ r.faction }}</span>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:baseline">
+      <span class="badge badge-gold">{{ r.deviation }}</span>
+      {% for risk in r.risks %}<span class="tag">{{ risk.zh }}</span>{% endfor %}
+      {% for risk in r.elite_extra %}<span class="badge badge-red">精英+{{ risk.zh }}</span>{% endfor %}
+    </div>
+    {% if r.dev_desc %}
+    <div class="cq-desc">偏差：{{ r.dev_desc }}</div>
+    {% endif %}
+    {% for risk in r.risks %}{% if risk.desc %}
+    <div class="cq-desc">{{ risk.zh }}：{{ risk.desc }}</div>
+    {% endif %}{% endfor %}
+    {% for risk in r.elite_extra %}{% if risk.desc %}
+    <div class="cq-desc" style="color:var(--red)">精英{{ risk.zh }}：{{ risk.desc }}</div>
+    {% endif %}{% endfor %}
+  </div>
+  {% endfor %}
+</div>
+{% endfor %}
+{% if not groups %}
+<div class="sec">
+  <div class="row"><div class="row-body"><div class="row-title">当前无科研任务数据</div></div></div>
+</div>
+{% endif %}
+{% endblock %}

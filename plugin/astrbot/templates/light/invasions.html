@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="sec">
+{% for i in items %}
+  <div class="row">
+    <div class="row-icon icon-red">⚔</div>
+    <div class="row-body">
+      <div class="row-title">{{ i.node }}</div>
+      <div class="row-sub">{{ i.matchup }}</div>
+      <div class="pbar"><div class="pbar-fill" style="width:{{ i.progress }}%"></div></div>
+      <div class="flex-between mt-4" style="font-size:20px">
+        <span>守方 <span class="price-sm">{{ i.defender_reward }}</span></span>
+        <span>攻方 <span class="tag">{{ i.attacker_reward }}</span></span>
+      </div>
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

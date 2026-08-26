@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="sec">
+  <div class="row" style="background:var(--bg3)">
+    <div class="row-icon icon-gold">✦</div>
+    <div class="row-body">
+      <div class="row-title">Baro Ki'Teer</div>
+      <div class="row-sub">到达：{{ arrival }} · 离开：{{ leave }}</div>
+    </div>
+  </div>
+{% for x in items %}
+  <div class="row">
+    <div class="row-body">
+      <div class="flex-between">
+        <div class="row-title">{{ x.name }}</div>
+        <span class="price-sm">{{ x.ducats }}杜 + {{ x.credits }}星币</span>
+      </div>
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

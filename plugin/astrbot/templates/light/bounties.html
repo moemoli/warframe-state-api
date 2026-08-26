@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block body %}
+{% if not items and lines %}
+<div class="sec">
+  <div class="row"><div class="row-body">
+    {% for line in lines %}<div class="row-title">{{ line }}</div>{% endfor %}
+  </div></div>
+</div>
+{% elif not items %}
+<div class="sec">
+  <div class="row"><div class="row-body">
+    <div class="row-title">请指定组织，例如：</div>
+    <div class="cmd-sub">赏金 夜灵　　赏金 金星　　赏金 火卫二</div>
+    <div class="cmd-sub">赏金 均衡仲裁者　　赏金 赤毒　　赏金 钢铁前线</div>
+  </div></div>
+</div>
+{% endif %}
+
+{% for g in items %}
+<div class="sec">
+  <div class="sec-title">🏛️ {{ g.name }}{% if g.kind == 'bounty' %} · {{ g.jobs|length }} 个赏金{% else %} · 日常任务{% endif %}</div>
+
+  {% if g.kind == 'bounty' %}
+    {% for j in g.jobs %}
+    <div class="row">
+      <div class="row-icon icon-blue">{{ loop.index }}</div>
+      <div class="row-body">
+        <div class="flex-between">
+          <div class="row-title">{{ j.type_zh }}</div>
+          <span class="badge badge-gray">{{ j.lv }}</span>
+        </div>
+        {% if j.rare %}
+        <div class="mt-4" style="display:flex;flex-wrap:wrap;gap:4px">
+          {% for rt in j.rare %}
+            {% for rare_item in rt['items'] %}
+              <span class="badge badge-gold">{{ rare_item }}</span>
+            {% endfor %}
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+
+  {% elif g.kind == 'daily' %}
+    {% for node in g.nodes %}
+    <div class="row">
+      <div class="row-icon icon-green">⚔</div>
+      <div class="row-body">
+        <div class="row-title">{{ node }}</div>
+      </div>
+    </div>
+    {% endfor %}
+    {% if not g.nodes %}
+    <div class="row"><div class="row-body"><div class="row-sub">当前无活跃任务节点</div></div></div>
+    {% endif %}
+  {% endif %}
+
+</div>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="sec">
+{% for s in items %}
+  <div class="row">
+    <div class="row-icon icon-blue">◆</div>
+    <div class="row-body">
+      <div class="flex-between">
+        <div class="row-title">{{ s.attr }}</div>
+        <span class="price-sm">{{ s.avg }}p</span>
+      </div>
+      <div class="row-sub">样本 {{ s.samples }} 单</div>
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

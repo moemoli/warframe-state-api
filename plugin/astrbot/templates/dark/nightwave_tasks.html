@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block body %}
+
+{% if elite %}
+<div class="sec">
+  <div class="sec-title">🔥 精英周常 · {{ elite|length }} 项</div>
+{% for c in elite %}
+  <div class="row">
+    <div class="row-icon icon-red">★</div>
+    <div class="row-body">
+      <div class="flex-between">
+        <div class="row-title">{{ c.name }}</div>
+        <span class="badge badge-red">{{ c.standing }}</span>
+      </div>
+      {% if c.description %}<div class="row-sub">{{ c.description[:100] }}</div>{% endif %}
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endif %}
+
+{% if weekly %}
+<div class="sec">
+  <div class="sec-title">📋 周常 · {{ weekly|length }} 项</div>
+{% for c in weekly %}
+  <div class="row">
+    <div class="row-icon icon-blue">{{ loop.index }}</div>
+    <div class="row-body">
+      <div class="flex-between">
+        <div class="row-title">{{ c.name }}</div>
+        <span class="badge badge-blue">{{ c.standing }}</span>
+      </div>
+      {% if c.description %}<div class="row-sub">{{ c.description[:100] }}</div>{% endif %}
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endif %}
+
+{% if daily %}
+<div class="sec">
+  <div class="sec-title">☀️ 日常 · {{ daily|length }} 项</div>
+{% for c in daily %}
+  <div class="row">
+    <div class="row-icon icon-gold">○</div>
+    <div class="row-body">
+      <div class="flex-between">
+        <div class="row-title">{{ c.name }}</div>
+        <span class="badge badge-gold">{{ c.standing }}</span>
+      </div>
+      {% if c.description %}<div class="row-sub">{{ c.description[:100] }}</div>{% endif %}
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endif %}
+
+{% if not daily and not weekly and not elite %}
+<div class="sec">
+  <div class="row"><div class="row-body">
+    <div class="row-title">当前无午夜电波数据</div>
+  </div></div>
+</div>
+{% endif %}
+
+{% endblock %}

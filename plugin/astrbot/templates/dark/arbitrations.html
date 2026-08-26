@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="sec">
+{% for a in items %}
+  <div class="row">
+    <div class="row-icon {% if loop.first %}icon-gold{% else %}icon-blue{% endif %}">{% if loop.first %}★{% else %}○{% endif %}</div>
+    <div class="row-body">
+      <div class="row-title">{{ a.node }} <span class="badge {% if loop.first %}badge-gold{% else %}badge-gray{% endif %}">{{ a.mission_type }}</span></div>
+      <div class="row-sub">{{ a.system }} · Lv{{ a.levels }}</div>
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

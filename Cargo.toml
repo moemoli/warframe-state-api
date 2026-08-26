@@ -3,6 +3,7 @@ name = "warframe-api"
 version = "0.1.0"
 edition = "2021"
 description = "Warframe API：WorldState 解析翻译 + 物品/节点/Mod/武器/掉落查询（Axum + PostgreSQL）"
+default-run = "warframe-api"
 
 [dependencies]
 axum = "0.8"
@@ -17,6 +18,21 @@ tower-http = { version = "0.6", features = ["cors", "trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 dotenvy = "0.15"
+
+# 仅打包工具（pack-plugin）使用，不影响主服务二进制
+zip = { version = "0.6", default-features = false, features = ["deflate"], optional = true }
+
+[features]
+pack-plugin = ["dep:zip"]
+
+[[bin]]
+name = "warframe-api"
+path = "src/main.rs"
+
+[[bin]]
+name = "pack-plugin"
+path = "src/bin/pack_plugin.rs"
+required-features = ["pack-plugin"]
 
 [profile.release]
 lto = true

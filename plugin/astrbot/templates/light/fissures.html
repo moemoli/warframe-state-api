@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="sec">
+{% for f in items %}
+  <div class="row">
+    <div class="row-icon {% if f.hard %}icon-purple{% else %}icon-blue{% endif %}">◇</div>
+    <div class="row-body">
+      <div class="row-title">{{ f.node }} <span class="badge {% if f.hard %}badge-purple{% else %}badge-blue{% endif %}">{{ f.tier }}{% if f.hard %}·钢铁{% endif %}</span></div>
+      <div class="row-sub">{{ f.mission_type }} · ⏱ {{ f.left }}</div>
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

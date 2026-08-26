@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="sec">
+  <div class="row" style="background:var(--bg3)">
+    <div class="row-icon icon-purple">⬡</div>
+    <div class="row-body">
+      <div class="row-title">{{ title }}</div>
+      <div class="row-sub">倾向 <span class="price-sm">{{ disp }}</span> · 类型 {{ rtype }} · 段位 {{ mastery }}</div>
+    </div>
+  </div>
+</div>
+{% if wiki %}<div class="note"><a href="{{ wiki }}">📖 Wiki</a></div>{% endif %}
+{% endblock %}

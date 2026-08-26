@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="sec">
+{% for n in items %}
+  <div class="row">
+    <div class="row-icon icon-blue">📰</div>
+    <div class="row-body">
+      <div class="row-title">{{ n.title }}</div>
+      <div class="row-sub">{{ n.when }}</div>
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

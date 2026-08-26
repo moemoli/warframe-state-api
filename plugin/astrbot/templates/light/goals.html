@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="sec">
+{% for g in items %}
+  <div class="row">
+    <div class="row-icon icon-green">🎯</div>
+    <div class="row-body">
+      <div class="row-title">{{ g.name }}</div>
+      {% if g.desc %}<div class="row-sub">{{ g.desc }}</div>{% endif %}
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

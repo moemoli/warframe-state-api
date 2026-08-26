@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="sec">
+{% for a in items %}
+  <div class="row">
+    <div class="row-icon icon-purple">◆</div>
+    <div class="row-body">
+      <div class="flex-between">
+        <div class="row-title">{{ a.effect }}</div>
+        <span class="badge badge-purple">{{ a.group }}</span>
+      </div>
+      <div class="row-sub">{{ a.affix }}</div>
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endblock %}
