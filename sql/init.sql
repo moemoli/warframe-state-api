@@ -332,6 +332,7 @@ SET default_table_access_method = heap;
 CREATE TABLE public.abilities (
     unique_name text NOT NULL,
     name_loc text,
+    description text,
     description_loc text,
     icon text,
     energy_required_to_activate integer,
@@ -352,6 +353,7 @@ CREATE TABLE public.achievement_children (
 CREATE TABLE public.achievements (
     unique_name text NOT NULL,
     name_loc text,
+    description text,
     description_loc text,
     icon text,
     required_count integer,
@@ -365,6 +367,7 @@ CREATE TABLE public.achievements (
 CREATE TABLE public.arcanes (
     unique_name text NOT NULL,
     name_loc text,
+    description text,
     icon text,
     codex_secret boolean,
     exclude_from_codex boolean,
@@ -380,6 +383,7 @@ CREATE TABLE public.arcanes (
 CREATE TABLE public.avionics (
     unique_name text NOT NULL,
     name_loc text,
+    description text,
     polarity text,
     rarity text,
     codex_secret boolean,
@@ -414,6 +418,7 @@ CREATE TABLE public.booster_pack_rarity_weights (
 CREATE TABLE public.booster_packs (
     unique_name text NOT NULL,
     name_loc text,
+    description text,
     description_loc text,
     icon text
 );
@@ -436,6 +441,7 @@ CREATE TABLE public.bundle_components (
 CREATE TABLE public.bundles (
     unique_name text NOT NULL,
     name_loc text,
+    description text,
     description_loc text,
     icon text,
     exclude_from_codex boolean,
@@ -448,6 +454,7 @@ CREATE TABLE public.bundles (
 CREATE TABLE public.customs (
     unique_name text NOT NULL,
     name_loc text,
+    description text,
     codex_secret boolean,
     description_loc text,
     icon text,
@@ -469,6 +476,7 @@ CREATE TABLE public.drone_capacity_multipliers (
 CREATE TABLE public.drones (
     unique_name text NOT NULL,
     name_loc text,
+    description text,
     description_loc text,
     icon text,
     bin_count integer,
@@ -540,6 +548,7 @@ ALTER SEQUENCE public.enemy_ai_weapon_behaviours_behaviour_id_seq OWNED BY publi
 CREATE TABLE public.enemy_ai_weapons (
     unique_name text NOT NULL,
     name_loc text,
+    description text,
     description_loc text,
     icon text
 );
@@ -550,6 +559,7 @@ CREATE TABLE public.enemy_ai_weapons (
 CREATE TABLE public.enemy_avatars (
     unique_name text NOT NULL,
     name_loc text,
+    description text,
     icon text,
     description_loc text,
     faction text,
@@ -684,6 +694,7 @@ CREATE TABLE public.flavour_colours (
 CREATE TABLE public.flavour_items (
     unique_name text NOT NULL,
     name_loc text,
+    description text,
     description_loc text,
     icon text,
     base text,
@@ -707,6 +718,7 @@ CREATE TABLE public.focus_upgrade_level_stats (
 CREATE TABLE public.focus_upgrades (
     unique_name text NOT NULL,
     name_loc text,
+    description text,
     icon text,
     polarity text,
     rarity text,
@@ -724,6 +736,7 @@ CREATE TABLE public.focus_upgrades (
 CREATE TABLE public.fusion_bundles (
     unique_name text NOT NULL,
     name_loc text,
+    description text,
     description_loc text,
     icon text,
     codex_secret boolean,
@@ -736,6 +749,7 @@ CREATE TABLE public.fusion_bundles (
 CREATE TABLE public.gear (
     unique_name text NOT NULL,
     name_loc text,
+    description text,
     description_loc text,
     icon text,
     codex_secret boolean,
@@ -758,6 +772,7 @@ CREATE TABLE public.intrinsic_ranks (
     intrinsic_unique_name text NOT NULL,
     rank_index integer NOT NULL,
     name_loc text,
+    description text,
     description_loc text
 );
 
@@ -767,6 +782,7 @@ CREATE TABLE public.intrinsic_ranks (
 CREATE TABLE public.intrinsics (
     unique_name text NOT NULL,
     name_loc text,
+    description text,
     description_loc text,
     icon text
 );
@@ -825,6 +841,7 @@ CREATE TABLE public.key_rewards (
 CREATE TABLE public.keys (
     unique_name text NOT NULL,
     name_loc text,
+    description text,
     description_loc text,
     icon text,
     parent_name text,
@@ -954,6 +971,7 @@ CREATE TABLE public.nightwave (
 CREATE TABLE public.nightwave_challenges (
     challenge_key text NOT NULL,
     name_loc text,
+    description text,
     description_loc text,
     standing integer,
     required integer,
@@ -968,6 +986,7 @@ CREATE TABLE public.nightwave_challenges (
 CREATE TABLE public.nightwave_rewards (
     unique_name text NOT NULL,
     name_loc text,
+    description text,
     description_loc text,
     icon text,
     item_count integer
@@ -1031,6 +1050,7 @@ CREATE TABLE public.railjack_weapon_damage_per_shot (
 CREATE TABLE public.railjack_weapons (
     unique_name text NOT NULL,
     name_loc text,
+    description text,
     parent_name text,
     icon text,
     codex_secret boolean,
@@ -1118,16 +1138,21 @@ CREATE TABLE public.region_reward_manifests (
 CREATE TABLE public.regions (
     unique_name text NOT NULL,
     name_loc text,
+    description text,
     system_index integer,
     system_name_loc text,
+    description text,
     node_type integer,
     mastery_req integer,
     mission_index integer,
     mission_name_loc text,
+    description text,
     faction_index integer,
     faction_name_loc text,
+    description text,
     secondary_faction_index integer,
     secondary_faction_name_loc text,
+    description text,
     min_enemy_level integer,
     max_enemy_level integer,
     mastery_exp integer,
@@ -1175,6 +1200,7 @@ CREATE TABLE public.resource_sockets (
 CREATE TABLE public.resources (
     unique_name text NOT NULL,
     name_loc text,
+    description text,
     description_loc text,
     icon text,
     codex_secret boolean,
@@ -1202,6 +1228,7 @@ CREATE TABLE public.sentinel_default_upgrades (
 CREATE TABLE public.sentinels (
     unique_name text NOT NULL,
     name_loc text,
+    description text,
     icon text,
     health integer,
     shield integer,
@@ -1240,6 +1267,7 @@ CREATE TABLE public.syndicate_titles (
     syndicate_unique_name text NOT NULL,
     level integer NOT NULL,
     name_loc text,
+    description text,
     icon text,
     description_loc text
 );
@@ -1250,6 +1278,7 @@ CREATE TABLE public.syndicate_titles (
 CREATE TABLE public.syndicates (
     unique_name text NOT NULL,
     name_loc text,
+    description text,
     icon text,
     colour text,
     background_colour text,
@@ -1389,6 +1418,7 @@ CREATE TABLE public.upgrade_mod_set_values (
 CREATE TABLE public.upgrades (
     unique_name text NOT NULL,
     name_loc text,
+    description text,
     icon text,
     polarity text,
     rarity text,
@@ -1422,6 +1452,7 @@ CREATE TABLE public.virtuals (
 CREATE TABLE public.warframes (
     unique_name text NOT NULL,
     name_loc text,
+    description text,
     parent_name text,
     description_loc text,
     icon text,
@@ -1454,6 +1485,7 @@ CREATE TABLE public.weapon_behaviours (
 CREATE TABLE public.weapons (
     unique_name text NOT NULL,
     name_loc text,
+    description text,
     parent_name text,
     icon text,
     codex_secret boolean,
@@ -3265,6 +3297,7 @@ CREATE TABLE public.worldstate_enums (
     category text NOT NULL,
     enum_code text NOT NULL,
     name_loc text,
+    description text,
     PRIMARY KEY (category, enum_code)
 );
 
