@@ -1118,10 +1118,10 @@ class WarframePlugin(Star):
     async def noprefix_cmd(self, event: AstrMessageEvent):
         """无前缀快捷指令：查/wm/wr/wiki/掉落 等可省略 / 前缀"""
         logger.info(f"[wf] noprefix_cmd triggered! msg={event.message_str!r}")
-        msg = event.message_str.strip()
-        # 如果已经带 / 前缀，让 command handler 处理，这里跳过
-        if msg.startswith("/"):
+        # 如果消息以 wake_prefix（/）开头，command handler 已处理，跳过
+        if event.is_at_or_wake_command:
             return
+        msg = event.message_str.strip()
         m = self._NOPREFIX_RE.match(msg)
         if not m:
             return
