@@ -31,6 +31,7 @@ pub fn router() -> Router<AppState> {
         .route("/api/items/{name}", axum::routing::get(items::search))
         .route("/api/items/{name}/drops", axum::routing::get(items::drops))
         .route("/api/aliases", axum::routing::post(items::post_aliases))
+        .route("/api/aliases", axum::routing::delete(items::delete_aliases))
         .route("/api/synthesis", axum::routing::get(synthesis::get))
         .route("/api/mods", axum::routing::get(mods::list))
         .route("/api/mods/{unique_name}", axum::routing::get(mods::detail))

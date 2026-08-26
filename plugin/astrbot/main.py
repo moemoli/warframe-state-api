@@ -885,31 +885,71 @@ class WarframePlugin(Star):
     @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("wfa", alias={"别名"})
     async def alias_cmd(self, event: AstrMessageEvent):
-        """管理员：添加别称。用法：wfa <简称> <物品名>"""
+        """管理员：别称管理。用法：wfa <简称> <物品名> / wfa 删 <简称>"""
         content, flags = self._flags(event, ["wfa", "别名"])
         toks = content.split()
+        if not toks:
+            yield event.plain_result(
+                "用法：wfa <简称> <物品名或entity_id>\n"
+                "删除：wfa 删 <简称>\n"
+                "示例：wfa 猴 Wukong")
+            return
+        api_key = (getattr(self, "config", None) or {}).get("alias_api_key") or ""
+        if not api_key:
+            yield event.plain_result("⚠ 服务端未配置 alias_api_key，请联系部署者"); return
+
+        # wfa 删 <简称>
+        if toks[0] in ("删", "delete", "del", "rm"):
+            if len(toks) < 2:
+                yield event.plain_result("用法：wfa 删 <简称>"); return
+            alias = toks[1]
+            try:
+                resp = await self.client.delete("/api/aliases",
+                                              json={"alias": alias},
+                                              headers={"X-API-Key": api_key})
+                n = resp.get("deleted", 0) if isinstance(resp, dict) else 0
+                if n > 0:
+                    yield event.plain_result(f"✅ 已删除别称：{alias}")
+                else:
+                    yield event.plain_result(f"未找到别称：{alias}")
+            except ApiError as e:
+                yield event.plain_result(f"❌ {e.message}")
+            return
+
+        # wfa <简称> <物品名/entity_id>
         if len(toks) < 2:
             yield event.plain_result(
-                "用法：wfa <简称> <物品名>\n"
+                "用法：wfa <简称> <物品名或entity_id>\n"
                 "示例：wfa 猴 Wukong\n"
-                "说明：搜索物品名，将简称绑定到第一个官方条目")
+                "示例：wfa 猴 /Lotus/Powersuits/MonkeyKing/MonkeyKing")
             return
-        short, query = toks[0], " ".join(toks[1:])
+        short = toks[0]
+        rest = " ".join(toks[1:])
         try:
-            sv = await self._do_search(query, flags)
-            results = [r for r in sv.get("results", []) if r.get("entity_id", "").startswith("/Lotus")]
-            if not results:
-                yield event.plain_result(f"未找到可绑定的官方条目：{query}"); return
-            r0 = results[0]
-            api_key = (getattr(self, "config", None) or {}).get("alias_api_key") or ""
-            if not api_key:
-                yield event.plain_result("⚠ 服务端未配置 alias_api_key，请联系部署者"); return
+            # 直接传 entity_id（以 /Lotus 开头）
+            if rest.startswith("/Lotus"):
+                entity_id = rest
+                entity_type = "warframes"
+                entity_name = entity_id.split("/")[-1]
+            else:
+                # 搜索模式
+                sv = await self._do_search(rest, flags)
+                results = [r for r in sv.get("results", []) if r.get("entity_id", "").startswith("/Lotus")]
+                if not results:
+                    yield event.plain_result(f"未找到可绑定的官方条目：{rest}"); return
+                r0 = results[0]
+                entity_id = r0.get("entity_id")
+                entity_type = r0.get("entity_type")
+                entity_name = r0.get("name")
+
             await self.client.post("/api/aliases",
                                    json={"aliases": [{"alias": short,
-                                                      "entity_type": r0.get("entity_type"),
-                                                      "entity_id": r0.get("entity_id")}]},
+                                                      "entity_type": entity_type,
+                                                      "entity_id": entity_id}]},
                                    headers={"X-API-Key": api_key})
-            yield event.plain_result(f"✅ 已绑定：{short} → {r0.get('name')}（{r0.get('entity_id')}）")
+            yield event.plain_result(f"✅ 已绑定：{short} → {entity_name}（{entity_id}）")
+        except ApiError as e:
+            yield event.plain_result(f"❌ {e.message}")
         except ApiError as e:
             yield event.plain_result(f"❌ {e.message}"); return
 

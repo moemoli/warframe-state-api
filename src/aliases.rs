@@ -62,3 +62,16 @@ pub async fn upsert_aliases(pool: &PgPool, entries: Vec<AliasEntry>) -> Result<u
     tx.commit().await?;
     Ok(n)
 }
+
+/// 删除别名（DELETE /api/aliases 使用）
+pub async fn delete_alias(pool: &PgPool, alias: &str) -> Result<usize, ApiError> {
+    let alias = alias.trim();
+    if alias.is_empty() {
+        return Err(ApiError::BadRequest("alias 不能为空".into()));
+    }
+    let res = sqlx::query("DELETE FROM aliases WHERE lower(alias) = lower($1)")
+        .bind(alias)
+        .execute(pool)
+        .await?;
+    Ok(res.rows_affected() as usize)
+}

@@ -291,3 +291,26 @@ pub async fn post_aliases(
     let n = aliases::upsert_aliases(&state.pool, body.aliases).await?;
     Ok(Json(json!({ "inserted": n })))
 }
+
+/// DELETE /api/aliases —— 别名删除（受 X-API-Key 保护）
+pub async fn delete_aliases(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> Result<Json<Value>, ApiError> {
+    let Some(key) = state.config.alias_api_key.clone() else {
+        return Err(ApiError::ServiceUnavailable("ALIAS_API_KEY 未配置".into()));
+    };
+    let provided = headers.get("x-api-key").and_then(|v| v.to_str().ok());
+    match provided {
+        Some(k) if k == key => {}
+        Some(_) => return Err(ApiError::Unauthorized("X-API-Key 错误".into())),
+        None => return Err(ApiError::Unauthorized("缺少 X-API-Key".into())),
+    }
+    let alias = body.get("alias").and_then(|v| v.as_str()).unwrap_or("");
+    if alias.is_empty() {
+        return Err(ApiError::BadRequest("alias 不能为空".into()));
+    }
+    let n = aliases::delete_alias(&state.pool, alias).await?;
+    Ok(Json(json!({ "deleted": n })))
+}

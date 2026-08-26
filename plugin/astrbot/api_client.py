@@ -103,6 +103,13 @@ class ApiClient:
             kw["headers"] = headers
         return await self._request("POST", path, **kw)
 
+    async def delete(self, path: str, json: Any = None, headers: dict | None = None) -> Any:
+        """DELETE {base}{path}，JSON body。"""
+        kw: dict[str, Any] = {"json": json}
+        if headers:
+            kw["headers"] = headers
+        return await self._request("DELETE", path, **kw)
+
     async def close(self):
         if self._session and not self._session.closed:
             await self._session.close()
