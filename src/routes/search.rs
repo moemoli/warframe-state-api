@@ -65,16 +65,31 @@ pub async fn search(
     // 2+3) 官方库 + wfm 普通物品 + 紫卡武器 + 赤毒武器 + 姐妹武器 联合搜索
     //      始终执行（别名命中也聚合其余来源），按 source+type+id 去重
     {
-        let rows: Vec<(String, String, String, Option<String>, String)> = sqlx::query_as(
-            "SELECT source, entity_type, entity_id, wfm_id, name FROM (
+        let rows: Vec<(String, String, String, Option<String>, String, i32)> = sqlx::query_as(
+            "SELECT source, entity_type, entity_id, wfm_id, name, score FROM (
                 -- 官方库
                 SELECT 'official' AS source, entity_type, entity_id,
-                       NULL::text AS wfm_id, value AS name
+                       NULL::text AS wfm_id, value AS name,
+                       CASE
+                           WHEN lower(value) = lower($2) THEN 100
+                           WHEN lower(value) LIKE lower($2) || '%' THEN 80
+                           WHEN lower(value) LIKE '%' || lower($2) || '%' THEN 60
+                           ELSE 0
+                       END AS score
                 FROM v_localized
                 WHERE lang = $1 AND field = 'name' AND value ILIKE '%' || $2 || '%'
                 UNION ALL
                 -- wfm 普通物品（名称/别名关联 + 别名基础名→slug 匹配）
-                SELECT 'wfm', 'wfm', COALESCE(w.game_ref, ''), w.wfm_id, i.item_name
+                SELECT 'wfm', 'wfm', COALESCE(w.game_ref, ''), w.wfm_id, i.item_name,
+                       CASE
+                           WHEN lower(i.item_name) = lower($2) THEN 100
+                           WHEN lower(i.item_name) LIKE lower($2) || '%' THEN 80
+                           WHEN lower(i.item_name) LIKE '%' || lower($2) || '%' THEN 60
+                           WHEN lower(w.slug) = lower($2) THEN 70
+                           WHEN lower(w.slug) LIKE lower($2) || '%' THEN 55
+                           WHEN lower(w.slug) LIKE '%' || lower($2) || '%' THEN 40
+                           ELSE 10
+                       END AS score
                 FROM wfm_items w
                 JOIN wfm_item_i18n i ON i.wfm_id = w.wfm_id AND i.lang = $1
                 WHERE i.item_name ILIKE '%' || $2 || '%' OR w.slug ILIKE '%' || $2 || '%'
@@ -95,33 +110,48 @@ pub async fn search(
                    )
                 UNION ALL
                 -- 紫卡武器
-                SELECT 'riven', 'riven_weapon', w.slug, w.wfm_id, i.item_name
+                SELECT 'riven', 'riven_weapon', w.slug, w.wfm_id, i.item_name,
+                       CASE
+                           WHEN lower(i.item_name) = lower($2) THEN 100
+                           WHEN lower(i.item_name) LIKE lower($2) || '%' THEN 80
+                           ELSE 60
+                       END AS score
                 FROM wfm_riven_items w
                 JOIN wfm_riven_item_i18n i ON i.wfm_id = w.wfm_id AND i.lang = $1
                 WHERE i.item_name ILIKE '%' || $2 || '%' OR w.slug ILIKE '%' || $2 || '%'
                 UNION ALL
                 -- 赤毒玄骸武器
-                SELECT 'lich', 'lich_weapon', w.slug, w.wfm_id, i.item_name
+                SELECT 'lich', 'lich_weapon', w.slug, w.wfm_id, i.item_name,
+                       CASE
+                           WHEN lower(i.item_name) = lower($2) THEN 100
+                           WHEN lower(i.item_name) LIKE lower($2) || '%' THEN 80
+                           ELSE 60
+                       END AS score
                 FROM wfm_lich_weapons w
                 JOIN wfm_lich_weapon_i18n i ON i.wfm_id = w.wfm_id AND i.lang = $1
                 WHERE i.item_name ILIKE '%' || $2 || '%' OR w.slug ILIKE '%' || $2 || '%'
                 UNION ALL
                 -- 帕尔沃斯姐妹武器
-                SELECT 'sister', 'sister_weapon', w.slug, w.wfm_id, i.item_name
+                SELECT 'sister', 'sister_weapon', w.slug, w.wfm_id, i.item_name,
+                       CASE
+                           WHEN lower(i.item_name) = lower($2) THEN 100
+                           WHEN lower(i.item_name) LIKE lower($2) || '%' THEN 80
+                           ELSE 60
+                       END AS score
                 FROM wfm_sister_weapons w
                 JOIN wfm_sister_weapon_i18n i ON i.wfm_id = w.wfm_id AND i.lang = $1
                 WHERE i.item_name ILIKE '%' || $2 || '%' OR w.slug ILIKE '%' || $2 || '%'
              ) sub
-             ORDER BY name NULLS LAST
+             ORDER BY score DESC, name NULLS LAST
              LIMIT $3",
         )
         .bind(&lang)
         .bind(&q)
-        .bind(limit)
+        .bind(limit * 5)
         .fetch_all(pool)
         .await?;
 
-        for (source, entity_type, entity_id, wfm_id, name) in rows {
+        for (source, entity_type, entity_id, wfm_id, name, _score) in rows {
             let key = format!("{source}:{entity_type}:{entity_id}");
             if !seen.insert(key) {
                 continue;
@@ -159,6 +189,32 @@ pub async fn search(
         }
     }
 
+    // 战甲搜索无部件关键词时，set 优先：把 slug 以 _set 结尾的 wfm 结果提到最前
+    // （保持同分数段内相对顺序稳定）
+    if !q.contains(' ') && !q.contains('/') {
+        let is_set_query = q.to_lowercase().ends_with("set");
+        // 分离：set 结果 vs 非 set 结果，保持各自顺序
+        let mut set_results: Vec<Value> = Vec::new();
+        let mut other_results: Vec<Value> = Vec::new();
+        for r in results.drain(..) {
+            let is_set = r.get("source").and_then(|v| v.as_str()) == Some("wfm")
+                && r.get("wfm").and_then(|w| w.get("slug")).and_then(|s| s.as_str())
+                    .map(|s| s.ends_with("_set")).unwrap_or(false);
+            // 部件关键词（蓝图/枪管/枪机/机体/系统/头部等）时 set 不优先
+            let has_part_kw = ["蓝图", "枪管", "枪机", "枪托", "机体", "系统", "头部",
+                               "神经光元", "一套", "blueprint", "barrel", "receiver", "stock",
+                               "chassis", "systems", "neuroptics"]
+                .iter().any(|kw| q.to_lowercase().contains(kw));
+            if is_set && !is_set_query && !has_part_kw {
+                set_results.push(r);
+            } else {
+                other_results.push(r);
+            }
+        }
+        set_results.extend(other_results);
+        results = set_results;
+    }
+
     // 热度统计：首个含游戏内路径的结果计一次（排行数据源）
     if let Some(first) = results.first() {
         if let Some(eid) = first.get("entity_id").and_then(|v| v.as_str()) {
@@ -190,6 +246,9 @@ pub async fn search(
             r.get("wfm").map_or(false, |w| !w.is_null())
         });
     }
+
+    // 截断到请求的 limit
+    results.truncate(limit as usize);
 
     if results.is_empty() {
         return Err(ApiError::NotFound(format!("未找到: {q}")));
