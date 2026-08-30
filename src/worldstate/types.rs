@@ -145,6 +145,8 @@ pub struct RawActiveMission {
 pub struct RawVoidStorm {
     pub node: String,
     #[serde(default)]
+    pub mission_type: Option<String>,
+    #[serde(default)]
     pub active_mission_tier: Option<String>,
     pub activation: Option<RawDate>,
     pub expiry: Option<RawDate>,

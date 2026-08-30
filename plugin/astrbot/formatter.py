@@ -28,6 +28,14 @@ def _parse_iso(s):
         return None
 
 
+def fmt_local(iso: str | None, fmt: str = "%m-%d %H:%M") -> str:
+    """UTC ISO → 服务器本地时区格式化显示。"""
+    dt = _parse_iso(iso)
+    if not dt:
+        return "—"
+    return dt.astimezone().strftime(fmt)
+
+
 def rel_time(iso: str | None, now: datetime | None = None) -> str:
     dt = _parse_iso(iso)
     if not dt:
@@ -129,10 +137,12 @@ def vm_alerts(data) -> dict:
                    ("节点", "类型", "派系", "等级", "奖励", "剩余"), items)
 
 
-def vm_fissures(data, steel_only=False) -> dict:
+def vm_fissures(data, steel_only=False, normal_only=False) -> dict:
     fis = data.get("fissures") or []
     if steel_only:
         fis = [f for f in fis if f.get("hard")]
+    elif normal_only:
+        fis = [f for f in fis if not f.get("hard")]
     rows, items = [], []
     for f in fis:
         tier = _name(f.get("modifier")) if f.get("modifier") else "?"
@@ -145,6 +155,21 @@ def vm_fissures(data, steel_only=False) -> dict:
                       "hard": bool(f.get("hard")), "left": left})
     title = f"钢铁裂缝 · {len(fis)} 条" if steel_only else f"虚空裂缝 · {len(fis)} 条"
     return _finish(title, rows, ("纪元", "节点", "类型", "剩余"), items)
+
+
+def vm_void_storms(data) -> dict:
+    """虚空风暴（九重天裂隙）"""
+    storms = data.get("void_storms") or []
+    rows, items = [], []
+    for s in storms:
+        tier = _name(s.get("tier")) if s.get("tier") else "?"
+        node = _name(s.get("node"))
+        mt = _name(s.get("mission_type")) if s.get("mission_type") else "九重天"
+        left = remain_between(s.get("activation"), s.get("expiry"))
+        rows.append((tier, node, mt, left))
+        items.append({"tier": tier, "node": node, "mission_type": mt, "left": left})
+    return _finish(f"虚空风暴 · {len(storms)} 条", rows,
+                   ("纪元", "节点", "类型", "剩余"), items)
 
 
 def vm_sortie(data) -> dict:
@@ -428,7 +453,7 @@ def vm_arbitrations(data) -> dict:
     for e in sched:
         vm, _x = one(e, 0)
         items.append(vm)
-        rows.append((e.get("activation", "")[11:16], vm["node"], vm["system"], vm["mission_type"], vm["levels"]))
+        rows.append((fmt_local(e.get("activation"), "%H:%M"), vm["node"], vm["system"], vm["mission_type"], vm["levels"]))
     return _finish("仲裁轮换", rows, ("", "节点", "星球", "类型", "等级"), items)
 
 
@@ -599,7 +624,8 @@ def vm_trends(data) -> dict:
             if pts:
                 last, first = pts[-1], pts[0]
                 lines.append(f"[{rng}] 最新均价 {last.get('avg')}p（量 {last.get('volume')}），"
-                             f"区间 {first.get('datetime','')[:10]} ~ {last.get('datetime','')[:10]}")
+                             f"区间 {fmt_local(first.get('datetime'), '%Y-%m-%d')} ~ "
+                             f"{fmt_local(last.get('datetime'), '%Y-%m-%d')}")
         items = (data.get("data") or {}).get("90d") or []
     else:
         for p in (data.get("points") or []):

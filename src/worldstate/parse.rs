@@ -287,9 +287,16 @@ async fn parse_void_storms(res: &mut Resolver<'_>, list: &[RawVoidStorm]) -> Val
         } else {
             Value::Null
         };
+        let mt = if let Some(m) = s.mission_type.as_deref() {
+            let r = res.resolve(m).await;
+            resolved_json(&r)
+        } else {
+            Value::Null
+        };
         out.push(json!({
             "node": node.map(|n| json!({"type": n.r#type, "name": n.name})),
             "tier": tier,
+            "mission_type": mt,
             "activation": s.activation.as_ref().and_then(|d| d.millis()).map(to_iso),
             "expiry": s.expiry.as_ref().and_then(|d| d.millis()).map(to_iso),
         }));

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="sec">
+{% for f in items %}
+  <div class="row">
+    <div class="row-icon icon-purple">✦</div>
+    <div class="row-body">
+      <div class="row-title">{{ f.node }} <span class="badge badge-purple">{{ f.tier }}</span></div>
+      <div class="row-sub">{{ f.mission_type }} · ⏱ {{ f.left }}</div>
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endblock %}
