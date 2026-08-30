@@ -49,10 +49,10 @@ def rel_time(iso: str | None, now: datetime | None = None) -> str:
 
 def remain_between(act: str | None, exp: str | None) -> str:
     exp_dt = _parse_iso(exp)
-    act_dt = _parse_iso(act) or datetime.now(timezone.utc).replace(tzinfo=None)
+    act_dt = _parse_iso(act) or datetime.now(timezone.utc)
     if not exp_dt:
         return "—"
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    now = datetime.now(timezone.utc)
     if act_dt and now < act_dt:
         return f"{rel_time(act)}开始"
     return rel_time(exp)

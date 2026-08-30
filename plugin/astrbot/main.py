@@ -310,6 +310,29 @@ class WarframePlugin(Star):
         async for m in self._reply(event, picked, flags, "fissures.html"):
             yield m
 
+    @filter.command("钢铁裂隙", alias={"钢铁裂缝"})
+    async def steel_fissures_cmd(self, event):
+        """钢铁裂缝（仅显示 hard=true 的虚空裂缝）"""
+        content, flags = self._flags(event, ["钢铁裂隙", "钢铁裂缝"])
+        if flags.cn:
+            yield event.plain_result("暂不支持国服数据"); return
+        sid = event.unified_msg_origin
+        try:
+            raw = await self._fetch_section("fissures", flags.lang)
+            vm = vm_fissures(raw, steel_only=True)
+        except ApiError as e:
+            yield event.plain_result(f"❌ {e.message}"); return
+        if vm.get("items"):
+            pages = paginate(vm["items"], self.page_size)
+            base = {k: v for k, v in vm.items() if k != "items"}
+            pages = [{**base, **p} for p in pages]
+            self.pages.set(sid, "ws:steelfissures", pages)
+            picked = self.pages.get(sid, "ws:steelfissures", flags.page) or pages[0]
+        else:
+            picked = vm
+        async for m in self._reply(event, picked, flags, "fissures.html"):
+            yield m
+
     @filter.command("奸商")
     async def baro_cmd(self, event):
         """虚空商人 Baro Ki'Teer"""
@@ -843,7 +866,8 @@ class WarframePlugin(Star):
     WF_ROUTE = {
         "警报": "alerts_cmd", "突击": "sortie_cmd", "猎杀": "lite_cmd",
         "执刑官": "lite_cmd", "入侵": "invasions_cmd", "裂隙": "fissures_cmd",
-        "裂缝": "fissures_cmd", "奸商": "baro_cmd", "特惠": "deals_cmd",
+        "裂缝": "fissures_cmd", "钢铁裂隙": "steel_fissures_cmd",
+        "钢铁裂缝": "steel_fissures_cmd", "奸商": "baro_cmd", "特惠": "deals_cmd",
         "每日特惠": "deals_cmd", "电波": "nightwave_cmd", "新闻": "news_cmd",
         "最近新闻": "news_cmd", "活动": "goals_cmd", "恶魔塔": "descents_cmd",
         "沉沦之地": "descents_cmd", "日历": "calendar_cmd",
@@ -1105,7 +1129,7 @@ class WarframePlugin(Star):
     _NOPREFIX_RE = re.compile(
         r'^(查|物品|wm|wr|wmr|wk|wiki|掉落|合成|铸造|赤毒|紫卡|帮助|help|指令|wfa|别名|'
         r'夜灵|夜灵平原|地球|金星|奥布山谷|火卫二|火卫|扎里曼|双衍王境|双衍|循环|平原时间|'
-        r'本周轮换|钢铁轮换|双衍轮换|赏金|bounty|警报|突击|猎杀|执刑官|入侵|裂隙|裂缝|'
+        r'本周轮换|钢铁轮换|双衍轮换|钢铁裂隙|钢铁裂缝|赏金|bounty|警报|突击|猎杀|执刑官|入侵|裂隙|裂缝|'
         r'奸商|特惠|每日特惠|电波|新闻|最近新闻|活动|恶魔塔|沉沦之地|日历|1999日历|'
         r'小小黑|仲裁|仲裁表|词条|玄骸|信条|倾向|结合目标|结合|wm趋势|紫卡趋势|'
         r'词条价差|部件|垃圾|金垃圾|银垃圾|铜垃圾|科研|深层科研|时光科研|Archimedea|排行|甲排行|卡排行|Mod排行|武排行|蹲|wf)'
@@ -1157,6 +1181,7 @@ class WarframePlugin(Star):
             "猎杀": self.lite_cmd, "执刑官": self.lite_cmd,
             "入侵": self.invasions_cmd,
             "裂隙": self.fissures_cmd, "裂缝": self.fissures_cmd,
+            "钢铁裂隙": self.steel_fissures_cmd, "钢铁裂缝": self.steel_fissures_cmd,
             "奸商": self.baro_cmd,
             "特惠": self.deals_cmd, "每日特惠": self.deals_cmd,
             "电波": self.nightwave_cmd,
