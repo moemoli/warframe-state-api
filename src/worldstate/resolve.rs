@@ -106,6 +106,31 @@ impl<'a> Resolver<'a> {
         }
     }
 
+    /// 节点 ID → (星球名, 任务类型名, 派系名)（regions 表，均翻译）
+    pub async fn node_meta(&mut self, id: &str) -> (Option<String>, Option<String>, Option<String>) {
+        let row: Option<(Option<String>, Option<String>, Option<String>)> = sqlx::query_as(
+            "SELECT system_name_loc, mission_name_loc, faction_name_loc \
+             FROM regions WHERE unique_name = $1")
+            .bind(id).fetch_optional(self.pool).await.ok().flatten();
+        let (sys, mis, fac) = match row {
+            Some(r) => r,
+            None => (None, None, None),
+        };
+        let system = match sys {
+            Some(t) => self.loc(&t).await,
+            None => None,
+        };
+        let mission = match mis {
+            Some(t) => self.loc(&t).await,
+            None => None,
+        };
+        let faction = match fac {
+            Some(t) => self.loc(&t).await,
+            None => None,
+        };
+        (system, mission, faction)
+    }
+
     /// 物品路径 → (entity_type, 名称)
     pub async fn item(&mut self, path: &str) -> Option<(String, Option<String>)> {
         for cand in path_variants(path) {

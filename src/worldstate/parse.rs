@@ -258,6 +258,7 @@ async fn parse_fissures(res: &mut Resolver<'_>, list: &[RawActiveMission]) -> Va
     let mut out = vec![];
     for f in list {
         let node = res.node(&f.node).await;
+        let (system, _, _) = res.node_meta(&f.node).await;
         let mt = res.resolve(&f.mission_type).await;
         let modifier = if let Some(m) = f.modifier.as_deref() {
             let r = res.resolve(m).await;
@@ -266,7 +267,8 @@ async fn parse_fissures(res: &mut Resolver<'_>, list: &[RawActiveMission]) -> Va
             Value::Null
         };
         out.push(json!({
-            "node": node.map(|n| json!({"type": n.r#type, "name": n.name})),
+            "node": node.map(|n| json!({"type": n.r#type, "name": n.name,
+                                         "system_name": system})),
             "mission_type": resolved_json(&mt),
             "modifier": modifier,
             "hard": f.hard,
@@ -281,6 +283,7 @@ async fn parse_void_storms(res: &mut Resolver<'_>, list: &[RawVoidStorm]) -> Val
     let mut out = vec![];
     for s in list {
         let node = res.node(&s.node).await;
+        let (system, mission, faction) = res.node_meta(&s.node).await;
         let tier = if let Some(t) = s.active_mission_tier.as_deref() {
             let r = res.resolve(t).await;
             resolved_json(&r)
@@ -290,13 +293,17 @@ async fn parse_void_storms(res: &mut Resolver<'_>, list: &[RawVoidStorm]) -> Val
         let mt = if let Some(m) = s.mission_type.as_deref() {
             let r = res.resolve(m).await;
             resolved_json(&r)
+        } else if let Some(m) = mission.as_deref() {
+            json!({"code": m, "name": m, "translated": false})
         } else {
             Value::Null
         };
         out.push(json!({
-            "node": node.map(|n| json!({"type": n.r#type, "name": n.name})),
+            "node": node.map(|n| json!({"type": n.r#type, "name": n.name,
+                                         "system_name": system})),
             "tier": tier,
             "mission_type": mt,
+            "faction": faction,
             "activation": s.activation.as_ref().and_then(|d| d.millis()).map(to_iso),
             "expiry": s.expiry.as_ref().and_then(|d| d.millis()).map(to_iso),
         }));

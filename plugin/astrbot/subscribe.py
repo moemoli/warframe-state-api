@@ -30,20 +30,53 @@ ALIAS_DIM: dict[str, list[tuple[str, Any]]] = {
     "三傻":   [("kind", "cycle"), ("cycle", "cetus"), ("state", "night")],
     "夜灵":   [("kind", "cycle"), ("cycle", "cetus"), ("state", "night")],
     "奸商":   [("kind", "void_trader")],
+    # —— 虚空风暴（九重天）——
+    "九重天": [("kind", "void_storm")],
+    "虚空风暴": [("kind", "void_storm")],
+    # —— 仲裁 ——
+    "仲裁":   [("kind", "arbitration")],
+    "仲裁表": [("kind", "arbitration")],
     # —— 通用维度词 ——
     "钢铁":   [("hard", True)],
     "普通":   [],
     "虚空":   [("system", "虚空")],
-    "夜灵平野": [("cycle", "cetus")],
+    # —— 循环名 ——
+    "夜灵平野": [("kind", "cycle"), ("cycle", "cetus")],
+    "夜灵平原": [("kind", "cycle"), ("cycle", "cetus")],
+    "奥布山谷": [("kind", "cycle"), ("cycle", "vallis")],
+    "扎里曼": [("kind", "cycle"), ("cycle", "zariman")],
+    "双衍王境": [("kind", "cycle"), ("cycle", "duviri")],
+    "双衍":   [("kind", "cycle"), ("cycle", "duviri")],
+    "Midrath": [("kind", "cycle"), ("cycle", "midrath")],
+    # —— 循环状态 ——
+    "白天":   [("state", "day")],
+    "黑夜":   [("state", "night")],
+    "夜晚":   [("state", "night")],
+    "温暖":   [("state", "warm")],
+    "寒冷":   [("state", "cold")],
+    "Fass":   [("state", "fass")],
+    "Vome":   [("state", "vome")],
+    "Corpus": [("state", "corpus")],
+    "Grineer":[("state", "grineer")],
+    "悲伤":   [("state", "sorrow")],
+    "恐惧":   [("state", "fear")],
+    "喜悦":   [("state", "joy")],
+    "愤怒":   [("state", "anger")],
+    "嫉妒":   [("state", "envy")],
+    # —— 星球（裂缝/仲裁 system 维度）——
     "地球":   [("system", "地球")],
-    "火星":   [("system", "火星")],
+    "金星":   [("system", "金星")],
+    "火卫二": [("system", "火卫二")],
     "月球":   [("system", "月球")],
+    "火星":   [("system", "火星")],
     "赛德娜": [("system", "赛德娜")],
     "海王星": [("system", "海王星")],
     "冥王星": [("system", "冥王星")],
-    "火卫二": [("system", "火卫二")],
-    "金星":   [("system", "金星")],
     "阋神星": [("system", "阋神星")],
+    "土星":   [("system", "土星")],
+    "天王星": [("system", "天王星")],
+    "欧罗巴": [("system", "欧罗巴")],
+    # —— 任务类型 ——
     "捕获":   [("mission", "捕获")],
     "歼灭":   [("mission", "歼灭")],
     "生存":   [("mission", "生存")],
@@ -54,15 +87,71 @@ ALIAS_DIM: dict[str, list[tuple[str, Any]]] = {
     "救援":   [("mission", "救援")],
     "间谍":   [("mission", "间谍")],
     "破坏":   [("mission", "破坏")],
-    "黑夜":   [("state", "night")],
-    "白天":   [("state", "day")],
+    "拦截":   [("mission", "拦截")],
+    "移动防御": [("mission", "移动防御")],
+    "镜像防御": [("mission", "镜像防御")],
+    "前哨战": [("mission", "前哨战")],
+    "刺杀":   [("mission", "刺杀")],
+    "爆发":   [("mission", "爆发")],
+    "奥影":   [("mission", "奥影")],
 }
 
 _KIND_DEFAULT = {
     "fissure": {"kind": "fissure"},
     "cycle": {"kind": "cycle"},
     "void_trader": {"kind": "void_trader"},
+    "void_storm": {"kind": "void_storm"},
+    "arbitration": {"kind": "arbitration"},
 }
+
+
+def _split_aliases(token: str) -> list[str] | None:
+    """把紧凑 token 拆成词典词的组合（最长优先）。
+
+    例：钢铁赛中 → [钢铁, 赛中]；九重天生存 → [九重天, 生存]。
+    无法完全拆分返回 None。
+    """
+    if token in ALIAS_DIM:
+        return [token]
+    # 大小写不敏感（如 midrath → Midrath）
+    if token.isascii():
+        for k in ALIAS_DIM:
+            if k.lower() == token.lower():
+                return [k]
+    keys = sorted(ALIAS_DIM.keys(), key=len, reverse=True)
+    parts: list[str] = []
+    rest = token
+    while rest:
+        matched = None
+        for k in keys:
+            if rest.startswith(k):
+                tail = rest[len(k):]
+                if not tail or _can_split(tail, keys):
+                    matched = k
+                    break
+        if matched is None:
+            return None
+        parts.append(matched)
+        rest = rest[len(matched):]
+    return parts
+
+
+def _can_split(rest: str, keys: list[str]) -> bool:
+    """剩余部分能否继续被词典词完整覆盖（含自身整词）。"""
+    if not rest or rest in ALIAS_DIM:
+        return True
+    if rest.isascii() and any(k.lower() == rest.lower() for k in ALIAS_DIM):
+        return True
+    for k in keys:
+        if rest.startswith(k):
+            tail = rest[len(k):]
+            if _can_split(tail, keys):
+                return True
+    return False
+
+
+# 星球 system 词 → 循环名（用于"地球 白天"式循环订阅推断）
+_SYSTEM_TO_CYCLE = {"地球": "earth", "金星": "vallis", "火卫二": "cambion"}
 
 
 class ParseError(Exception):
@@ -70,7 +159,12 @@ class ParseError(Exception):
 
 
 def parse_subscribe(text: str, duration_s: int | None) -> dict:
-    """解析『蹲』参数 → 订阅记录（不含会话字段）。"""
+    """解析『蹲』参数 → 订阅记录（不含会话字段）。
+
+    支持紧凑组合：钢铁赛中 = 钢铁+赛中；九重天生存 = 九重天+生存。
+    循环订阅：夜灵平原/地球/金星/火卫二/扎里曼/双衍王境 + 状态词；
+    星球词在地球/金星/火卫二且带状态词时自动推断为循环。
+    """
     text = text.strip()
     if not text:
         raise ParseError("缺少订阅条件，例：蹲钢月 / 蹲赛中 / 蹲 钢铁 虚空 生存")
@@ -79,23 +173,33 @@ def parse_subscribe(text: str, duration_s: int | None) -> dict:
     for token in re.split(r"[，,\s]+", text):
         if not token:
             continue
-        entries = ALIAS_DIM.get(token)
-        if entries is None:
-            low = token.lower()
-            for k, v in ALIAS_DIM.items():
-                if k.lower() == low:
-                    entries = v
-                    break
-        if entries is None:
-            raise ParseError(f"无法识别『{token}』。可用示例：钢月/赛中/三傻/奸商/星球名/任务名/钢铁")
-        matched_any_alias = matched_any_alias or any(d == "kind" for d, _ in entries)
-        for dim, val in entries:
-            if dim == "kind" or dim in _KIND_DEFAULT.get(conds.get("kind", ""), {}):
-                pass
-            conds[dim] = val
+        parts = _split_aliases(token)
+        if parts is None:
+            raise ParseError(
+                f"无法识别『{token}』。可用示例：钢月/赛中/三傻/奸商/九重天生存/"
+                f"钢铁赛中/夜灵平原/星球名/任务名/钢铁/仲裁")
+        for p in parts:
+            entries = ALIAS_DIM[p]
+            matched_any_alias = matched_any_alias or any(d == "kind" for d, _ in entries)
+            for dim, val in entries:
+                conds[dim] = val
+
+    # —— kind 推断 ——
     if not conds.get("kind"):
-        conds["kind"] = "fissure"
-        matched_any_alias = True
+        if "state" in conds:
+            # 带状态词 → 循环订阅；星球词转循环名
+            sysn = conds.get("system")
+            if "cycle" in conds:
+                conds["kind"] = "cycle"
+            elif sysn in _SYSTEM_TO_CYCLE:
+                conds["cycle"] = _SYSTEM_TO_CYCLE[sysn]
+                conds.pop("system", None)
+                conds["kind"] = "cycle"
+            else:
+                raise ParseError("循环订阅需要循环名，如：夜灵平原/地球/金星/火卫二/扎里曼/双衍王境")
+        else:
+            conds["kind"] = "fissure"
+            matched_any_alias = True
     now = int(time.time())
     return {
         "kind": conds["kind"],
@@ -230,6 +334,30 @@ def match_fissure(cond: dict, entry: dict) -> bool:
     return True
 
 
+def match_void_storm(cond: dict, entry: dict) -> bool:
+    """虚空风暴匹配：node/system_name + mission_type + tier。"""
+    node = entry.get("node") or {}
+    if cond.get("system") and cond["system"] not in str(node.get("system_name") or ""):
+        if cond["system"] not in str(node.get("name") or ""):
+            return False
+    if cond.get("mission") and cond["mission"] not in str((entry.get("mission_type") or {}).get("name") or ""):
+        return False
+    if cond.get("tier") and cond["tier"] not in str((entry.get("tier") or {}).get("name") or ""):
+        return False
+    return True
+
+
+def match_arbitration(cond: dict, entry: dict) -> bool:
+    """仲裁匹配：node/system_name + mission_type。entry 为 /api/arbitrations 条目。"""
+    node = entry.get("node") or {}
+    if cond.get("system") and cond["system"] not in str((node.get("system") or {}).get("name") or ""):
+        if cond["system"] not in str(node.get("name") or ""):
+            return False
+    if cond.get("mission") and cond["mission"] not in str(entry.get("mission_type") or ""):
+        return False
+    return True
+
+
 def match_cycle(cond: dict, cyc: dict) -> bool:
     if cond.get("cycle") and cond["cycle"] != cyc.get("name"):
         return False
@@ -240,6 +368,14 @@ def match_cycle(cond: dict, cyc: dict) -> bool:
 
 def hit_key_fissure(entry: dict) -> str:
     return f"f:{entry.get('id') or entry.get('activation')}"
+
+
+def hit_key_void_storm(entry: dict) -> str:
+    return f"vs:{(entry.get('node') or {}).get('type')}:{entry.get('expiry')}"
+
+
+def hit_key_arbitration(entry: dict) -> str:
+    return f"a:{(entry.get('node') or {}).get('id')}:{entry.get('activation')}"
 
 
 def hit_key_cycle(cyc: dict) -> str:
@@ -292,12 +428,20 @@ class Poller:
         now = time.time()
 
         need_kinds = {s["kind"] for s in subs}
-        fissures = cycles = vt = None
+        fissures = cycles = vt = void_storms = arbitrations = None
 
         if "fissure" in need_kinds and now - self._last_tick.get("fissure", 0) >= 60:
             data = await self.client.get("/api/worldstate", sections="fissures")
             fissures = data.get("fissures") or []
             self._last_tick["fissure"] = now
+        if "void_storm" in need_kinds and now - self._last_tick.get("void_storm", 0) >= 60:
+            data = await self.client.get("/api/worldstate", sections="void_storms")
+            void_storms = data.get("void_storms") or []
+            self._last_tick["void_storm"] = now
+        if "arbitration" in need_kinds and now - self._last_tick.get("arbitration", 0) >= 60:
+            data = await self.client.get("/api/arbitrations")
+            arbitrations = data.get("latest")
+            self._last_tick["arbitration"] = now
         if "cycle" in need_kinds and now - self._last_tick.get("cycle", 0) >= 30:
             data = await self.client.get("/api/cycles")
             cycles = data.get("cycles") or []
@@ -321,6 +465,31 @@ class Poller:
                             f"{(entry.get('modifier') or {}).get('name','')}",
                             f"{(entry.get('node') or {}).get('name','?')} · "
                             f"{(entry.get('mission_type') or {}).get('name','?')}",
+                        ], k)
+            elif kind == "void_storm" and void_storms is not None:
+                for entry in void_storms:
+                    k = hit_key_void_storm(entry)
+                    if match_void_storm(cond, entry) and not self.store.seen_has(k):
+                        self.store.seen_add(k)
+                        await self._emit_hit(sub, [
+                            f"虚空风暴 {(entry.get('tier') or {}).get('name','?')}",
+                            f"{(entry.get('node') or {}).get('name','?')} · "
+                            f"{(entry.get('mission_type') or {}).get('name','?')}",
+                        ], k)
+            elif kind == "arbitration" and arbitrations is not None:
+                if match_arbitration(cond, arbitrations):
+                    k = hit_key_arbitration(arbitrations)
+                    if sub.get("last_hit_key") != k and not self.store.seen_has(k):
+                        self.store.seen_add(k)
+                        sub["last_hit_key"] = k
+                        self.store.save()
+                        node = arbitrations.get("node") or {}
+                        await self._emit_hit(sub, [
+                            f"仲裁 {node.get('name','?')} · "
+                            f"{(node.get('system') or {}).get('name','?')}",
+                            f"{arbitrations.get('mission_type','?')} "
+                            f"(Lv{((arbitrations.get('enemy_levels') or {}).get('min','?'))}"
+                            f"-{((arbitrations.get('enemy_levels') or {}).get('max','?'))})",
                         ], k)
             elif kind == "cycle" and cycles is not None:
                 for cyc in cycles:
