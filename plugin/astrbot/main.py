@@ -852,7 +852,7 @@ class WarframePlugin(Star):
                 "　　蹲夜灵平原 白天／蹲地球 白天／蹲金星 寒冷／蹲火卫二 Vome\n"
                 "　　蹲扎里曼 Corpus／蹲双衍 愤怒／蹲midrath\n"
                 "　　蹲 钢铁 虚空 生存\n时长：7天 两周 长期 永久 数字+h/d/w/m"
-                "（缺省命中一次即删）\n管理：蹲 列表 / 蹲 取消 / 蹲 <序号> 取消")
+                "（不指定时长＝只订阅一次，命中即删）\n管理：蹲 列表 / 蹲 取消 / 蹲 <序号> 取消")
             return
         if toks[0] == "列表":
             subs = self.store.list_session(session)

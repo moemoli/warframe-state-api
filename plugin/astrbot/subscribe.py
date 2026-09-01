@@ -201,11 +201,15 @@ def parse_subscribe(text: str, duration_s: int | None) -> dict:
             conds["kind"] = "fissure"
             matched_any_alias = True
     now = int(time.time())
+    if duration_s == -1:
+        expire_at = -1                        # 永久
+    else:
+        expire_at = (now + duration_s) if duration_s else None   # 指定时长 / 只订阅一次
     return {
         "kind": conds["kind"],
         "cond": {k: v for k, v in conds.items() if k != "kind"},
         "duration_s": duration_s,
-        "expire_at": (now + duration_s) if duration_s else None,
+        "expire_at": expire_at,
         "created_at": now,
         "last_hit_key": None,
         "_alias_matched": matched_any_alias,
@@ -466,6 +470,7 @@ class Poller:
                             f"{(entry.get('node') or {}).get('name','?')} · "
                             f"{(entry.get('mission_type') or {}).get('name','?')}",
                         ], k)
+                        break
             elif kind == "void_storm" and void_storms is not None:
                 for entry in void_storms:
                     k = hit_key_void_storm(entry)
@@ -476,6 +481,7 @@ class Poller:
                             f"{(entry.get('node') or {}).get('name','?')} · "
                             f"{(entry.get('mission_type') or {}).get('name','?')}",
                         ], k)
+                        break
             elif kind == "arbitration" and arbitrations is not None:
                 if match_arbitration(cond, arbitrations):
                     k = hit_key_arbitration(arbitrations)
@@ -503,6 +509,7 @@ class Poller:
                                 f"{cyc.get('name_zh') or cyc.get('name','')} → {cyc.get('state_name','')}",
                                 f"剩余 {cyc.get('remaining','?')}",
                             ], k)
+                        break
             elif kind == "void_trader" and vt:
                 k = hit_key_vt(vt)
                 act = vt.get("activation") or ""
