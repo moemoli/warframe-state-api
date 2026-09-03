@@ -28,15 +28,315 @@ pub struct WfmParams {
     range: Option<String>,
     limit: Option<i64>,
     offset: Option<i64>,
+    // ---- 列表端点通用数值筛选（rivens/liches/sisters 等）----
+    /// 精通段位要求下限
+    mastery_min: Option<i32>,
+    /// 精通段位要求上限
+    mastery_max: Option<i32>,
+    /// 倾向值下限（仅 rivens 有 disposition 字段）
+    disp_min: Option<f64>,
+    /// 倾向值上限（仅 rivens）
+    disp_max: Option<f64>,
 }
 
 fn lang_of<'a>(state: &'a AppState, p: &'a WfmParams) -> String {
     p.lang.clone().unwrap_or_else(|| state.config.default_lang.clone())
 }
 
+fn lang_of_opt(state: &AppState, lang: &Option<String>) -> String {
+    lang.clone().unwrap_or_else(|| state.config.default_lang.clone())
+}
+
+/// 校验成对数值参数（min/max 均可缺省），非法范围返回 400
+fn check_range(name: &str, min: Option<i64>, max: Option<i64>) -> Result<(), ApiError> {
+    if let (Some(a), Some(b)) = (min, max) {
+        if a > b {
+            return Err(ApiError::BadRequest(format!(
+                "{name} 范围非法：min({a}) > max({b})"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn check_range_i32(name: &str, min: Option<i32>, max: Option<i32>) -> Result<(), ApiError> {
+    if let (Some(a), Some(b)) = (min, max) {
+        if a > b {
+            return Err(ApiError::BadRequest(format!(
+                "{name} 范围非法：min({a}) > max({b})"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn check_range_f64(name: &str, min: Option<f64>, max: Option<f64>) -> Result<(), ApiError> {
+    if let (Some(a), Some(b)) = (min, max) {
+        if a > b {
+            return Err(ApiError::BadRequest(format!(
+                "{name} 范围非法：min({a}) > max({b})"
+            )));
+        }
+    }
+    Ok(())
+}
+
 // ============================================================
 // /api/wfm/items —— 可交易物品
 // ============================================================
+
+/// GET /api/wfm/auctions 与 /api/wfm/spread 的筛选参数
+///
+/// 全部可选，多个条件取交集（AND）。词条用逗号分隔（与 wfm_riven_attributes.slug
+/// 一致，如 `critical_chance,critical_damage`）。
+#[derive(Debug, Deserialize)]
+pub struct AuctionParams {
+    lang: Option<String>,
+    limit: Option<i64>,
+    /// 洗练次数下限（零洗 = rerolls_min=0&rerolls_max=0）
+    rerolls_min: Option<i64>,
+    /// 洗练次数上限（如 5洗 = rerolls_max=5）
+    rerolls_max: Option<i64>,
+    /// mod 等级下限（0..8）
+    rank_min: Option<i64>,
+    /// mod 等级上限
+    rank_max: Option<i64>,
+    /// 精通段位要求下限
+    mastery_min: Option<i64>,
+    /// 精通段位要求上限
+    mastery_max: Option<i64>,
+    /// 有效价格（买断价优先，无则起拍价）下限
+    price_min: Option<i64>,
+    /// 有效价格上限（如 1000p = price_max=1000）
+    price_max: Option<i64>,
+    /// 正面词条数下限（如 2+ = pos_min=2）
+    pos_min: Option<i64>,
+    /// 正面词条数上限
+    pos_max: Option<i64>,
+    /// 负面词条数下限（带负 = neg_min=1）
+    neg_min: Option<i64>,
+    /// 负面词条数上限（无负 = neg_max=0）
+    neg_max: Option<i64>,
+    /// 必须包含的正面词条 slug，逗号分隔，可重复段；全部须命中
+    attr_pos: Option<String>,
+    /// 必须包含的负面词条 slug，逗号分隔；全部须命中
+    attr_neg: Option<String>,
+    /// 极性：madurai | naramon | vazarin | zenurik
+    polarity: Option<String>,
+    /// 卖家状态：ingame | online | offline | any（默认 any）
+    status: Option<String>,
+}
+
+/// 归一化后的拍卖筛选条件（用于匹配与 filters 回显）
+#[derive(Debug, Default, Clone)]
+struct AuctionFilter {
+    rerolls: (Option<i64>, Option<i64>),
+    rank: (Option<i64>, Option<i64>),
+    mastery: (Option<i64>, Option<i64>),
+    price: (Option<i64>, Option<i64>),
+    pos: (Option<i64>, Option<i64>),
+    neg: (Option<i64>, Option<i64>),
+    attr_pos: Vec<String>,
+    attr_neg: Vec<String>,
+    polarity: Option<String>,
+    status: Option<String>,
+}
+
+impl AuctionFilter {
+    fn is_empty(&self) -> bool {
+        self.rerolls == (None, None)
+            && self.rank == (None, None)
+            && self.mastery == (None, None)
+            && self.price == (None, None)
+            && self.pos == (None, None)
+            && self.neg == (None, None)
+            && self.attr_pos.is_empty()
+            && self.attr_neg.is_empty()
+            && self.polarity.is_none()
+            && self.status.is_none()
+    }
+
+    fn to_json(&self, lang: &str) -> Value {
+        let rng = |r: (Option<i64>, Option<i64>)| json!({ "min": r.0, "max": r.1 });
+        json!({
+            "lang": lang,
+            "rerolls": rng(self.rerolls),
+            "rank": rng(self.rank),
+            "mastery": rng(self.mastery),
+            "price": rng(self.price),
+            "pos": rng(self.pos),
+            "neg": rng(self.neg),
+            "attr_pos": self.attr_pos,
+            "attr_neg": self.attr_neg,
+            "polarity": self.polarity,
+            "status": self.status.clone().unwrap_or_else(|| "any".into()),
+        })
+    }
+}
+
+fn split_slugs(s: &str) -> Vec<String> {
+    s.split(',').map(|x| x.trim().to_string()).filter(|x| !x.is_empty()).collect()
+}
+
+/// 校验词条 slug 是否存在于词条表；未知值返回 400（表本身为空时跳过校验）
+async fn validate_attr_slugs(pool: &PgPool, slugs: &[String]) -> Result<(), ApiError> {
+    if slugs.is_empty() { return Ok(()); }
+    let total: i64 = sqlx::query_scalar("SELECT count(*) FROM wfm_riven_attributes")
+        .fetch_one(pool).await?;
+    if total == 0 {
+        // 词条表尚未导入数据时不做强校验，避免误伤
+        return Ok(());
+    }
+    let known: Vec<String> = sqlx::query_scalar(
+        "SELECT slug FROM wfm_riven_attributes WHERE slug = ANY($1)")
+        .bind(slugs).fetch_all(pool).await?;
+    let unknown: Vec<&String> = slugs.iter().filter(|s| !known.contains(s)).collect();
+    if !unknown.is_empty() {
+        return Err(ApiError::BadRequest(format!(
+            "未知词条 slug: {}（可用 /api/wfm/rivens/attributes 查询）",
+            unknown.iter().map(|s| s.as_str()).collect::<Vec<_>>().join(", ")
+        )));
+    }
+    Ok(())
+}
+
+/// 校验并构建拍卖筛选条件（数值范围 / 极性 / 卖家状态）
+fn parse_auction_filter(p: &AuctionParams) -> Result<AuctionFilter, ApiError> {
+    check_range("rerolls", p.rerolls_min, p.rerolls_max)?;
+    check_range("rank", p.rank_min, p.rank_max)?;
+    check_range("mastery", p.mastery_min, p.mastery_max)?;
+    check_range("price", p.price_min, p.price_max)?;
+    check_range("pos", p.pos_min, p.pos_max)?;
+    check_range("neg", p.neg_min, p.neg_max)?;
+
+    let polarity = match p.polarity.as_deref() {
+        None => None,
+        Some(v @ ("madurai" | "naramon" | "vazarin" | "zenurik")) => Some(v.to_string()),
+        Some(v) => {
+            return Err(ApiError::BadRequest(format!(
+                "polarity 非法：{v}（可选 madurai/naramon/vazarin/zenurik）"
+            )))
+        }
+    };
+    let status = match p.status.as_deref() {
+        None => None,
+        Some(v @ ("ingame" | "online" | "offline" | "any")) => Some(v.to_string()),
+        Some(v) => {
+            return Err(ApiError::BadRequest(format!(
+                "status 非法：{v}（可选 ingame/online/offline/any）"
+            )))
+        }
+    };
+
+    Ok(AuctionFilter {
+        rerolls: (p.rerolls_min, p.rerolls_max),
+        rank: (p.rank_min, p.rank_max),
+        mastery: (p.mastery_min, p.mastery_max),
+        price: (p.price_min, p.price_max),
+        pos: (p.pos_min, p.pos_max),
+        neg: (p.neg_min, p.neg_max),
+        attr_pos: p.attr_pos.as_deref().map(split_slugs).unwrap_or_default(),
+        attr_neg: p.attr_neg.as_deref().map(split_slugs).unwrap_or_default(),
+        polarity,
+        status,
+    })
+}
+
+fn in_range(v: Option<i64>, r: (Option<i64>, Option<i64>)) -> bool {
+    match (r.0, r.1) {
+        (None, None) => true,
+        (Some(a), None) => v.map_or(false, |x| x >= a),
+        (None, Some(b)) => v.map_or(false, |x| x <= b),
+        (Some(a), Some(b)) => v.map_or(false, |x| x >= a && x <= b),
+    }
+}
+
+/// 简化拍卖条目是否满足全部条件（AND）
+fn auction_matches(a: &Value, f: &AuctionFilter) -> bool {
+    let i64_at = |k: &str| a.get(k).and_then(|v| v.as_i64());
+    if !in_range(i64_at("rerolls"), f.rerolls) { return false; }
+    if !in_range(i64_at("rank"), f.rank) { return false; }
+    if !in_range(i64_at("mastery_level"), f.mastery) { return false; }
+    if !in_range(i64_at("price"), f.price) { return false; }
+
+    if let Some(pol) = &f.polarity {
+        if a.get("polarity").and_then(|v| v.as_str()) != Some(pol.as_str()) { return false; }
+    }
+    if let Some(st) = &f.status {
+        let s = a.get("status").and_then(|v| v.as_str()).unwrap_or("offline");
+        let ok = match st.as_str() {
+            "any" => true,
+            "ingame" => s == "ingame",
+            "online" => s == "ingame" || s == "online",
+            "offline" => s == "offline",
+            _ => true,
+        };
+        if !ok { return false; }
+    }
+
+    let attrs = a.get("attributes").and_then(|v| v.as_array());
+    let (mut pos, mut neg) = (0i64, 0i64);
+    let (mut pos_hit, mut neg_hit) = (vec![false; f.attr_pos.len()], vec![false; f.attr_neg.len()]);
+    if let Some(list) = attrs {
+        for at in list {
+            let negative = at.get("negative").and_then(|v| v.as_bool()).unwrap_or(false);
+            if negative { neg += 1; } else { pos += 1; }
+            if let Some(name) = at.get("name").and_then(|v| v.as_str()) {
+                if !negative {
+                    for (i, w) in f.attr_pos.iter().enumerate() {
+                        if w == name { pos_hit[i] = true; }
+                    }
+                } else {
+                    for (i, w) in f.attr_neg.iter().enumerate() {
+                        if w == name { neg_hit[i] = true; }
+                    }
+                }
+            }
+        }
+    }
+    if !in_range(Some(pos), f.pos) { return false; }
+    if !in_range(Some(neg), f.neg) { return false; }
+    pos_hit.iter().all(|h| *h) && neg_hit.iter().all(|h| *h)
+}
+
+/// 生成该条命中项满足的筛选条件文案（用于逐条标注）
+fn matched_conditions(a: &Value, f: &AuctionFilter) -> Vec<Value> {
+    if f.is_empty() { return vec![]; }
+    let mut out: Vec<String> = Vec::new();
+    let rng_desc = |label: &str, r: (Option<i64>, Option<i64>)| -> Option<String> {
+        match (r.0, r.1) {
+            (Some(a0), Some(b0)) if a0 == b0 => Some(format!("{label}={a0}")),
+            (Some(a0), None) => Some(format!("{label}≥{a0}")),
+            (None, Some(b0)) => Some(format!("{label}≤{b0}")),
+            (Some(a0), Some(b0)) => Some(format!("{a0}≤{label}≤{b0}")),
+            (None, None) => None,
+        }
+    };
+    if let Some(s) = rng_desc("洗练", f.rerolls) { out.push(s); }
+    if let Some(s) = rng_desc("等级", f.rank) { out.push(s); }
+    if let Some(s) = rng_desc("段位", f.mastery) { out.push(s); }
+    if let Some(s) = rng_desc("价格", f.price) { out.push(s); }
+    if let Some(s) = rng_desc("正面词条数", f.pos) { out.push(s); }
+    if let Some(s) = rng_desc("负面词条数", f.neg) { out.push(s); }
+    // 命中词条（带中文名对照优先）
+    if let Some(list) = a.get("attributes").and_then(|v| v.as_array()) {
+        for at in list {
+            let negative = at.get("negative").and_then(|v| v.as_bool()).unwrap_or(false);
+            if let Some(name) = at.get("name").and_then(|v| v.as_str()) {
+                let disp = at.get("name_zh").and_then(|v| v.as_str())
+                    .unwrap_or(name);
+                let wanted = if negative { &f.attr_neg } else { &f.attr_pos };
+                if wanted.iter().any(|w| w == name) {
+                    out.push(format!("{}含「{}」", if negative { "负面" } else { "正面" }, disp));
+                }
+            }
+        }
+    }
+    if let Some(pol) = &f.polarity {
+        out.push(format!("极性={pol}"));
+    }
+    out.into_iter().map(Value::String).collect()
+}
 
 /// GET /api/wfm/items?name=adaptation&lang=zh
 pub async fn list(
@@ -101,6 +401,7 @@ pub async fn detail(
 // ============================================================
 
 /// GET /api/wfm/rivens?name=rubico&type=rifle&lang=zh
+/// 支持 mastery_min/max（段位要求）、disp_min/max（倾向值）范围筛选。
 pub async fn riven_list(
     State(state): State<AppState>,
     Query(p): Query<WfmParams>,
@@ -108,6 +409,8 @@ pub async fn riven_list(
     let lang = lang_of(&state, &p);
     let limit = p.limit.unwrap_or(20).clamp(1, 100);
     let offset = p.offset.unwrap_or(0).max(0);
+    check_range_i32("mastery", p.mastery_min, p.mastery_max)?;
+    check_range_f64("disp", p.disp_min, p.disp_max)?;
 
     let rows: Vec<(String, String, Option<String>, Option<String>, Option<String>,
                    Option<String>, Option<String>, Option<f32>, Option<i32>)> = sqlx::query_as(
@@ -117,8 +420,13 @@ pub async fn riven_list(
          LEFT JOIN wfm_riven_item_i18n i ON i.wfm_id = w.wfm_id AND i.lang = $1
          WHERE ($2::text IS NULL OR i.item_name ILIKE '%' || $2 || '%' OR w.slug ILIKE '%' || $2 || '%')
            AND ($3::text IS NULL OR w.riven_type = $3)
-         ORDER BY i.item_name NULLS LAST, w.slug LIMIT $4 OFFSET $5",
+           AND ($4::int IS NULL OR w.mastery_level >= $4)
+           AND ($5::int IS NULL OR w.mastery_level <= $5)
+           AND ($6::float8 IS NULL OR w.disposition >= $6)
+           AND ($7::float8 IS NULL OR w.disposition <= $7)
+         ORDER BY i.item_name NULLS LAST, w.slug LIMIT $8 OFFSET $9",
     ).bind(&lang).bind(p.name.as_deref()).bind(p.r#type.as_deref())
+     .bind(p.mastery_min).bind(p.mastery_max).bind(p.disp_min).bind(p.disp_max)
      .bind(limit).bind(offset).fetch_all(&state.pool).await?;
 
     let items: Vec<Value> = rows.iter().map(|r| json!({
@@ -126,7 +434,29 @@ pub async fn riven_list(
         "icon": r.5, "thumb": r.6, "disposition": r.7, "mastery_level": r.8,
     })).collect();
 
-    Ok(Json(json!({ "items": items, "total": items.len(), "limit": limit, "offset": offset })))
+    // 真实命中总数（分页前）
+    let total: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM wfm_riven_items w
+         LEFT JOIN wfm_riven_item_i18n i ON i.wfm_id = w.wfm_id AND i.lang = $1
+         WHERE ($2::text IS NULL OR i.item_name ILIKE '%' || $2 || '%' OR w.slug ILIKE '%' || $2 || '%')
+           AND ($3::text IS NULL OR w.riven_type = $3)
+           AND ($4::int IS NULL OR w.mastery_level >= $4)
+           AND ($5::int IS NULL OR w.mastery_level <= $5)
+           AND ($6::float8 IS NULL OR w.disposition >= $6)
+           AND ($7::float8 IS NULL OR w.disposition <= $7)")
+        .bind(&lang).bind(p.name.as_deref()).bind(p.r#type.as_deref())
+        .bind(p.mastery_min).bind(p.mastery_max).bind(p.disp_min).bind(p.disp_max)
+        .fetch_one(&state.pool).await?;
+
+    Ok(Json(json!({
+        "lang": lang,
+        "filters": {
+            "name": p.name, "type": p.r#type,
+            "mastery": { "min": p.mastery_min, "max": p.mastery_max },
+            "disposition": { "min": p.disp_min, "max": p.disp_max },
+        },
+        "items": items, "total": total, "limit": limit, "offset": offset,
+    })))
 }
 
 /// GET /api/wfm/rivens/attributes?lang=zh
@@ -184,6 +514,7 @@ pub async fn riven_detail(
 // ============================================================
 
 /// GET /api/wfm/liches?name=kuva&lang=zh
+/// 支持 mastery_min/max（段位要求）范围筛选。
 pub async fn lich_list(
     State(state): State<AppState>,
     Query(p): Query<WfmParams>,
@@ -191,6 +522,7 @@ pub async fn lich_list(
     let lang = lang_of(&state, &p);
     let limit = p.limit.unwrap_or(20).clamp(1, 100);
     let offset = p.offset.unwrap_or(0).max(0);
+    check_range_i32("mastery", p.mastery_min, p.mastery_max)?;
 
     let rows: Vec<(String, String, Option<String>, Option<String>, Option<String>,
                    Option<String>, Option<i32>)> = sqlx::query_as(
@@ -198,8 +530,11 @@ pub async fn lich_list(
          FROM wfm_lich_weapons w
          LEFT JOIN wfm_lich_weapon_i18n i ON i.wfm_id = w.wfm_id AND i.lang = $1
          WHERE ($2::text IS NULL OR i.item_name ILIKE '%' || $2 || '%' OR w.slug ILIKE '%' || $2 || '%')
-         ORDER BY i.item_name NULLS LAST, w.slug LIMIT $3 OFFSET $4",
-    ).bind(&lang).bind(p.name.as_deref()).bind(limit).bind(offset)
+           AND ($3::int IS NULL OR w.mastery_level >= $3)
+           AND ($4::int IS NULL OR w.mastery_level <= $4)
+         ORDER BY i.item_name NULLS LAST, w.slug LIMIT $5 OFFSET $6",
+    ).bind(&lang).bind(p.name.as_deref())
+     .bind(p.mastery_min).bind(p.mastery_max).bind(limit).bind(offset)
      .fetch_all(&state.pool).await?;
 
     let items: Vec<Value> = rows.iter().map(|r| json!({
@@ -207,7 +542,24 @@ pub async fn lich_list(
         "icon": r.3, "thumb": r.4, "item_name": r.5, "mastery_level": r.6,
     })).collect();
 
-    Ok(Json(json!({ "items": items, "total": items.len(), "limit": limit, "offset": offset })))
+    let total: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM wfm_lich_weapons w
+         LEFT JOIN wfm_lich_weapon_i18n i ON i.wfm_id = w.wfm_id AND i.lang = $1
+         WHERE ($2::text IS NULL OR i.item_name ILIKE '%' || $2 || '%' OR w.slug ILIKE '%' || $2 || '%')
+           AND ($3::int IS NULL OR w.mastery_level >= $3)
+           AND ($4::int IS NULL OR w.mastery_level <= $4)")
+        .bind(&lang).bind(p.name.as_deref())
+        .bind(p.mastery_min).bind(p.mastery_max)
+        .fetch_one(&state.pool).await?;
+
+    Ok(Json(json!({
+        "lang": lang,
+        "filters": {
+            "name": p.name,
+            "mastery": { "min": p.mastery_min, "max": p.mastery_max },
+        },
+        "items": items, "total": total, "limit": limit, "offset": offset,
+    })))
 }
 
 /// GET /api/wfm/liches/{slug}?lang=zh
@@ -239,6 +591,7 @@ pub async fn lich_detail(
 // ============================================================
 
 /// GET /api/wfm/sisters?name=tenet&lang=zh
+/// 支持 mastery_min/max（段位要求）范围筛选。
 pub async fn sister_list(
     State(state): State<AppState>,
     Query(p): Query<WfmParams>,
@@ -246,6 +599,7 @@ pub async fn sister_list(
     let lang = lang_of(&state, &p);
     let limit = p.limit.unwrap_or(20).clamp(1, 100);
     let offset = p.offset.unwrap_or(0).max(0);
+    check_range_i32("mastery", p.mastery_min, p.mastery_max)?;
 
     let rows: Vec<(String, String, Option<String>, Option<String>, Option<String>,
                    Option<String>, Option<i32>)> = sqlx::query_as(
@@ -253,8 +607,11 @@ pub async fn sister_list(
          FROM wfm_sister_weapons w
          LEFT JOIN wfm_sister_weapon_i18n i ON i.wfm_id = w.wfm_id AND i.lang = $1
          WHERE ($2::text IS NULL OR i.item_name ILIKE '%' || $2 || '%' OR w.slug ILIKE '%' || $2 || '%')
-         ORDER BY i.item_name NULLS LAST, w.slug LIMIT $3 OFFSET $4",
-    ).bind(&lang).bind(p.name.as_deref()).bind(limit).bind(offset)
+           AND ($3::int IS NULL OR w.mastery_level >= $3)
+           AND ($4::int IS NULL OR w.mastery_level <= $4)
+         ORDER BY i.item_name NULLS LAST, w.slug LIMIT $5 OFFSET $6",
+    ).bind(&lang).bind(p.name.as_deref())
+     .bind(p.mastery_min).bind(p.mastery_max).bind(limit).bind(offset)
      .fetch_all(&state.pool).await?;
 
     let items: Vec<Value> = rows.iter().map(|r| json!({
@@ -262,7 +619,24 @@ pub async fn sister_list(
         "icon": r.3, "thumb": r.4, "item_name": r.5, "mastery_level": r.6,
     })).collect();
 
-    Ok(Json(json!({ "items": items, "total": items.len(), "limit": limit, "offset": offset })))
+    let total: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM wfm_sister_weapons w
+         LEFT JOIN wfm_sister_weapon_i18n i ON i.wfm_id = w.wfm_id AND i.lang = $1
+         WHERE ($2::text IS NULL OR i.item_name ILIKE '%' || $2 || '%' OR w.slug ILIKE '%' || $2 || '%')
+           AND ($3::int IS NULL OR w.mastery_level >= $3)
+           AND ($4::int IS NULL OR w.mastery_level <= $4)")
+        .bind(&lang).bind(p.name.as_deref())
+        .bind(p.mastery_min).bind(p.mastery_max)
+        .fetch_one(&state.pool).await?;
+
+    Ok(Json(json!({
+        "lang": lang,
+        "filters": {
+            "name": p.name,
+            "mastery": { "min": p.mastery_min, "max": p.mastery_max },
+        },
+        "items": items, "total": total, "limit": limit, "offset": offset,
+    })))
 }
 
 /// GET /api/wfm/sisters/{slug}?lang=zh
@@ -419,28 +793,44 @@ fn simplify_auction(a: &Value) -> Value {
 }
 
 /// GET /api/wfm/auctions/{slug}?lang=zh&limit=20
+/// 支持 wr 全语法筛选（AND）：rerolls/rank/mastery/price/pos/neg 范围、
+/// attr_pos/attr_neg 词条、polarity、status。详见 doc/api/wfm-auctions.md。
 pub async fn auctions(
     State(state): State<AppState>,
     Path(slug): Path<String>,
-    Query(p): Query<WfmParams>,
+    Query(p): Query<AuctionParams>,
 ) -> Result<Json<Value>, ApiError> {
-    let lang = lang_of(&state, &p);
+    let lang = lang_of_opt(&state, &p.lang);
     let limit = p.limit.unwrap_or(20).clamp(1, 50) as usize;
+    let filter = parse_auction_filter(&p)?;
+    // 校验词条 slug 合法性
+    let mut chk: Vec<String> = filter.attr_pos.clone();
+    chk.extend(filter.attr_neg.iter().cloned());
+    chk.sort(); chk.dedup();
+    validate_attr_slugs(&state.pool, &chk).await?;
+
     let list = fetch_auctions(&slug).await.map_err(|e| ApiError::WorldState(e.to_string()))?;
-    if list.is_empty() {
-        return Ok(Json(json!({ "slug": slug, "total": 0, "auctions": [] })));
-    }
 
-    let mut items: Vec<Value> = list.iter().take(limit).map(simplify_auction).collect();
+    // 1) 服务端过滤（AND）
+    let mut items: Vec<Value> = list.iter()
+        .map(simplify_auction)
+        .filter(|a| auction_matches(a, &filter))
+        .collect();
+    let total = items.len();
+
+    // 2) 排序：价格低到高（买断价优先字段为 price）
     items.sort_by_key(|a| a.get("price").and_then(|v| v.as_i64()).unwrap_or(i64::MAX));
+    items.truncate(limit);
 
-    // 词条英文 slug → 中文对照（复用紫卡词条表 i18n）
+    // 3) 词条英文 slug → 中文对照
     let attr_map = attr_name_map(&state.pool, &items, &lang).await;
     for a in items.iter_mut() {
         translate_attr_names(a, &attr_map);
+        // 逐条标注命中条件（须在词条翻译后，matched_conditions 需 name_zh）
+        a["matched_conditions"] = Value::Array(matched_conditions(a, &filter));
     }
 
-    // 记录紫卡价格快照（kind=riven：以当前最低买断价为卖价参考）
+    // 4) 记录紫卡价格快照（kind=riven：以当前最低买断价为卖价参考）
     let prices: Vec<i64> = items.iter()
         .filter_map(|a| a.get("price").and_then(|v| v.as_i64())).collect();
     if !prices.is_empty() {
@@ -455,10 +845,16 @@ pub async fn auctions(
             .execute(&state.pool).await;
     }
 
-    Ok(Json(json!({ "slug": slug, "total": list.len(), "auctions": items })))
+    Ok(Json(json!({
+        "slug": slug, "lang": lang,
+        "filters": filter.to_json(&lang),
+        "total": total, "limit": limit,
+        "auctions": items,
+    })))
 }
 
 /// 批量查询词条 slug → 当前语言名称（复用 wfm_riven_attributes + i18n）
+/// 兼容两种行结构：拍卖行（attributes 数组）与价差聚合行（顶层 attribute 键）。
 async fn attr_name_map(pool: &PgPool, items: &[Value], lang: &str) -> std::collections::HashMap<String, String> {
     // 收集全部词条 slug
     let mut slugs: Vec<String> = Vec::new();
@@ -469,6 +865,9 @@ async fn attr_name_map(pool: &PgPool, items: &[Value], lang: &str) -> std::colle
                     slugs.push(n.to_string());
                 }
             }
+        }
+        if let Some(n) = a.get("attribute").and_then(|v| v.as_str()) {
+            slugs.push(n.to_string());
         }
     }
     if slugs.is_empty() { return std::collections::HashMap::new(); }
@@ -509,28 +908,44 @@ fn translate_attr_names(a: &mut Value, map: &std::collections::HashMap<String, S
 }
 
 /// GET /api/wfm/spread/{slug} —— 词条价差：各正面词条在挂单中的平均成交参考价
+/// 支持与 /api/wfm/auctions 相同的筛选参数：先过滤拍卖样本，再对命中样本聚合。
 pub async fn spread(
     State(state): State<AppState>,
     Path(slug): Path<String>,
-    Query(p): Query<WfmParams>,
+    Query(p): Query<AuctionParams>,
 ) -> Result<Json<Value>, ApiError> {
-    let lang = lang_of(&state, &p);
+    let lang = lang_of_opt(&state, &p.lang);
+    let filter = parse_auction_filter(&p)?;
+    // 校验词条 slug 合法性
+    let mut chk: Vec<String> = filter.attr_pos.clone();
+    chk.extend(filter.attr_neg.iter().cloned());
+    chk.sort(); chk.dedup();
+    validate_attr_slugs(&state.pool, &chk).await?;
     let list = fetch_auctions(&slug).await.map_err(|e| ApiError::WorldState(e.to_string()))?;
     if list.is_empty() {
-        return Ok(Json(json!({ "slug": slug, "samples": 0, "attributes": [] })));
+        return Ok(Json(json!({
+            "slug": slug, "lang": lang,
+            "filters": filter.to_json(&lang),
+            "samples": 0, "attributes": [],
+        })));
     }
 
-    // 聚合：正面词条 → (价格和, 样本数)
+    // 1) 服务端过滤（与 auctions 同一套 AND 条件），再聚合命中样本
+    let matched: Vec<Value> = list.iter()
+        .map(simplify_auction)
+        .filter(|a| auction_matches(a, &filter))
+        .collect();
+
+    // 2) 聚合：正面词条 → (价格和, 样本数)
     let mut agg: std::collections::HashMap<String, (i64, i64)> = std::collections::HashMap::new();
-    for a in &list {
-        let price = a.get("buyout_price").and_then(|v| v.as_i64())
-            .or_else(|| a.get("starting_price").and_then(|v| v.as_i64()));
+    for a in &matched {
+        let price = a.get("price").and_then(|v| v.as_i64());
         let Some(price) = price else { continue };
-        if let Some(attrs) = a.pointer("/item/attributes").and_then(|v| v.as_array()) {
+        if let Some(attrs) = a.get("attributes").and_then(|v| v.as_array()) {
             for at in attrs {
-                let negative = !at.get("positive").and_then(|x| x.as_bool()).unwrap_or(true);
+                let negative = at.get("negative").and_then(|x| x.as_bool()).unwrap_or(false);
                 if negative { continue; }
-                if let Some(name) = at.get("url_name").and_then(|x| x.as_str()) {
+                if let Some(name) = at.get("name").and_then(|x| x.as_str()) {
                     let e = agg.entry(name.to_string()).or_insert((0, 0));
                     e.0 += price; e.1 += 1;
                 }
@@ -554,7 +969,11 @@ pub async fn spread(
         translate_attr_names(r, &attr_map);
     }
 
-    Ok(Json(json!({ "slug": slug, "lang": lang, "samples": list.len(), "attributes": rows })))
+    Ok(Json(json!({
+        "slug": slug, "lang": lang,
+        "filters": filter.to_json(&lang),
+        "samples": matched.len(), "attributes": rows,
+    })))
 }
 
 // ============================================================

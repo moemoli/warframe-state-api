@@ -40,9 +40,9 @@
 | 文档 | 端点 | 游戏内容 |
 |---|---|---|
 | [wfm-items](wfm-items.md) / [detail](wfm-items-detail.md) | `GET /api/wfm/items...` | 可交易物品列表 / 详情+实时价格 |
-| [wfm-rivens](wfm-rivens.md) / [attributes](wfm-riven-attributes.md) / [detail](wfm-rivens-detail.md) | `GET /api/wfm/rivens...` | 紫卡武器库 / 词条全集 / 详情 |
-| [wfm-auctions](wfm-auctions.md) | `GET /api/wfm/auctions/{slug}` | 紫卡拍卖场实时挂单 |
-| [wfm-spread](wfm-spread.md) | `GET /api/wfm/spread/{slug}` | 词条价差：哪个词条最值钱 |
+| [wfm-rivens](wfm-rivens.md) / [attributes](wfm-riven-attributes.md) / [detail](wfm-rivens-detail.md) | `GET /api/wfm/rivens...` | 紫卡武器库（段位/倾向筛选）/ 词条全集 / 详情 |
+| [wfm-auctions](wfm-auctions.md) | `GET /api/wfm/auctions/{slug}` | 紫卡拍卖实时挂单 + 服务端筛选（洗练/等级/段位/词条/极性/价格/状态），命中项逐条标注条件 |
+| [wfm-spread](wfm-spread.md) | `GET /api/wfm/spread/{slug}` | 词条价差：哪个词条最值钱（支持 auctions 同款筛选） |
 | [wfm-trends](wfm-trends.md) | `GET /api/wfm/trends/{slug}` | 价格走势（48h/90d 真实成交） |
 | [wfm-components](wfm-components.md) | `GET /api/wfm/components` | 杜卡德垃圾分档筛选 |
 | [wfm-liches](wfm-liches.md) / [detail](wfm-liches-detail.md) | `GET /api/wfm/liches...` | 赤毒玄骸武器 |
@@ -138,6 +138,7 @@ curl "localhost:8099/api/nodes/SolNode94?lang=zh"
 curl "localhost:8099/api/weapons/斯特朗/riven?lang=zh"
 curl "localhost:8099/api/wfm/items/adaptation?lang=zh"              # WM 实时价格
 curl "localhost:8099/api/wfm/auctions/rubico?lang=zh"               # 紫卡拍卖
+curl "localhost:8099/api/wfm/auctions/rubico?lang=zh&rerolls_max=0&pos_min=2&neg_max=0&attr_pos=critical_chance,critical_damage"  # 拍卖筛选
 curl "localhost:8099/api/wfm/trends/adaptation"                     # 90 天价格趋势
 curl "localhost:8099/api/synthesis?target=火焰轰击者"                # 结合目标反查
 ```

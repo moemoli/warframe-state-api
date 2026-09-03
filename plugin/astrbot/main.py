@@ -81,9 +81,9 @@ WR_ATTR_ALIAS = {
     "基伤": "base_damage_/_melee_damage", "近战伤害": "base_damage_/_melee_damage",
     "暴率": "critical_chance", "暴伤": "critical_damage",
     "多重": "multishot", "触发": "status_chance",
-    "冰": "cold_damage", "火": "heat_damage", "电": "electricity_damage",
-    "毒": "toxin_damage", "C伤": "damage_to_corpus", "G伤": "damage_to_grineer",
-    "I伤": "damage_to_infested", "攻速": "attack_speed", "装填": "reload_speed",
+    "冰": "cold_damage", "火": "heat_damage", "电": "electric_damage",
+    "毒": "toxin_damage", "C伤": "damage_vs_corpus", "G伤": "damage_vs_grineer",
+    "I伤": "damage_vs_infested", "攻速": "fire_rate_/_attack_speed", "装填": "reload_speed",
 }
 WR_POLARITY = {"r槽": "madurai", "-槽": "naramon", "角槽": "vazarin", "=槽": "zenurik"}
 
@@ -515,70 +515,47 @@ class WarframePlugin(Star):
         async for m in self._reply(event, vm, flags, "wfm_price.html"):
             yield m
 
-    # ---- wr 全语法（§5.2.1）----
+    # ---- wr 全语法（§5.2.1）：客户端解析 token → 服务端筛选参数 ----
     def _parse_wr_filters(self, tokens: list[str]) -> tuple[dict, list[str]]:
-        filters: dict = {}
+        """把 wr 筛选 token 翻译为 auctions 端点 query 参数。
+
+        返回 (params, rest)。params 键：rerolls_min/max、rank_min/max、
+        mastery_min/max、pos_min/neg_min、price_max、polarity、attr_pos(list)。
+        """
+        params: dict = {}
         rest: list[str] = []
         pol_keys = list(WR_POLARITY.keys())
         for t in tokens:
             low = t.lower()
             matched = False
             if t in WR_POLARITY:
-                filters["polarity"] = WR_POLARITY[t]; matched = True
+                params["polarity"] = WR_POLARITY[t]; matched = True
             else:
                 for pk in pol_keys:
                     if t.endswith(pk) and len(t) > len(pk):
-                        filters["polarity"] = WR_POLARITY[pk]; matched = True; break
+                        params["polarity"] = WR_POLARITY[pk]; matched = True; break
             if matched:
                 continue
             p = _match_price(t)
             if p is not None:
-                filters["price_max"] = p; continue
+                params["price_max"] = p; continue
             if t == "零洗":
-                filters["rerolls_zero"] = True; continue
+                params["rerolls_min"] = 0
+                params["rerolls_max"] = 0; continue
             if t.endswith("洗") and t[:-1].isdigit():
-                filters["rerolls_max"] = int(t[:-1]); continue
+                params["rerolls_max"] = int(t[:-1]); continue
             m2 = re.match(r"^(\d)\+$", t)
             if m2:
-                filters["pos_min"] = int(m2.group(1)); continue
+                params["pos_min"] = int(m2.group(1)); continue
             m21 = re.match(r"^(\d)\+(\d)$", t)
             if m21:
-                filters["pos_min"] = int(m21.group(1))
-                filters["neg_min"] = int(m21.group(2)); continue
+                params["pos_min"] = int(m21.group(1))
+                params["neg_min"] = int(m21.group(2)); continue
             zh = WR_ATTR_ALIAS.get(t)
             if zh:
-                filters.setdefault("attrs", []).append(zh); continue
+                params.setdefault("attr_pos", []).append(zh); continue
             rest.append(t)
-        return filters, rest
-
-    def _match_wr(self, a: dict, f: dict) -> bool:
-        price = a.get("price") or 0
-        if "price_max" in f and price > f["price_max"]:
-            return False
-        rr = a.get("rerolls") or 0
-        if "rerolls_zero" in f and rr != 0:
-            return False
-        if "rerolls_max" in f and rr > f["rerolls_max"]:
-            return False
-        if "polarity" in f and (a.get("polarity") or "") != f["polarity"]:
-            return False
-        pos = neg = 0
-        names: set[str] = set()
-        for x in a.get("attributes") or []:
-            if x.get("negative"):
-                neg += 1
-            else:
-                pos += 1
-                if x.get("name"):
-                    names.add(x["name"])
-        if "pos_min" in f and pos < f["pos_min"]:
-            return False
-        if "neg_min" in f and neg < f["neg_min"]:
-            return False
-        for want in f.get("attrs") or []:
-            if want not in names:
-                return False
-        return True
+        return params, rest
 
     async def _attr_zh_map(self) -> dict[str, str]:
         now = time.time()
@@ -599,7 +576,7 @@ class WarframePlugin(Star):
 
     @filter.command("wr", alias={"wmr", "wk"})
     async def wr_cmd(self, event):
-        """紫卡拍卖筛选（全语法见实现文档 §5.2.1）"""
+        """紫卡拍卖筛选（服务端筛选，全语法见实现文档 §5.2.1）"""
         content, flags = self._flags(event, ["wr", "wmr", "wk"])
         if not content:
             yield event.plain_result("用法：wr <武器名> [2+|3+1|词条|零洗|1000p|r槽]"); return
@@ -612,23 +589,28 @@ class WarframePlugin(Star):
             if not its:
                 yield event.plain_result(f"未找到紫卡武器：{weapon_word}"); return
             slug = its[0]["slug"]
-            au = await self.client.get(f"/api/wfm/auctions/{slug}", lang=flags.lang)
-            vm = vm_auctions(au)
-            filters, extra_kw = self._parse_wr_filters(toks[1:])
-            # 中文词条 → slug（复用 attributes i18n）
+            params, extra_kw = self._parse_wr_filters(toks[1:])
+            # 中文词条 → slug（复用 attributes i18n），拼入 attr_pos
             if extra_kw:
                 zhm = await self._attr_zh_map()
                 rev = {zh: sl for sl, zh in zhm.items()}
                 for kw in extra_kw:
                     if kw in rev:
-                        filters.setdefault("attrs", []).append(rev[kw])
-                    elif kw not in filters.get("keywords", []):
-                        filters.setdefault("keywords", []).append(kw)
-            if filters:
-                keep = [a for a in vm.get("items") or [] if self._match_wr(a, filters)]
-                vm["items"] = keep
-                vm["title"] += f" · 符合 {len(keep)} 单"
-                vm["lines"] = [f"{len(keep)} 单符合筛选"]
+                        params.setdefault("attr_pos", []).append(rev[kw])
+                    else:
+                        logger.info(f"[wf] wr 未识别筛选词: {kw}")
+            if params.get("attr_pos"):
+                params["attr_pos"] = ",".join(params["attr_pos"])
+            # 服务端筛选：limit 拉满让命中单都回来，页面按需截取
+            au = await self.client.get(f"/api/wfm/auctions/{slug}",
+                                       lang=flags.lang, limit=50, **params)
+            vm = vm_auctions(au)
+            if params:
+                # 首条命中单的 matched_conditions 与全量一致（AND 语义）
+                conds = (au.get("auctions") or [{}])[0].get("matched_conditions") or []
+                note = " / ".join(f"「{c}」" for c in conds)
+                if note:
+                    vm["subtitle"] = f"命中 {au.get('total', 0)} 单 · {note}"
         except ApiError as e:
             yield event.plain_result(f"❌ {e.message}"); return
         async for m in self._reply(event, vm, flags, "auctions.html"):

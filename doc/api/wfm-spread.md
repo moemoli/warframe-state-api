@@ -4,17 +4,35 @@
 
 ## 🎮 这是什么游戏数据
 
-**词条价差分析**：对同一武器的全部紫卡拍卖聚合统计，回答"这把枪洗出哪个词条最值钱"。仅统计正面词条且样本 ≥2，输出按均价降序。
+**词条价差分析**：对同一武器的紫卡拍卖聚合统计，回答"这把枪洗出哪个词条最值钱"。仅统计正面词条且样本 ≥2，输出按均价降序。
 
-基于同一拍卖数据聚合：各**正面**词条在挂单中的平均价格排行（≥2 样本才计入）。
+## 与 /api/wfm/auctions 共用筛选
+
+支持与 `/api/wfm/auctions/{slug}` **完全相同**的筛选参数（`rerolls_min/max`、
+`rank_min/max`、`mastery_min/max`、`price_min/max`、`pos_min/max`、`neg_min/max`、
+`attr_pos`、`attr_neg`、`polarity`、`status`）：**先过滤拍卖样本，再对命中样本聚合**，
+因此可回答"零洗/2+ 双暴/无负这类单子里，哪个词条最值钱"。响应带 `filters` 回显，
+`samples` 为**命中拍卖数**。
 
 ```bash
-curl "http://127.0.0.1:8099/api/wfm/spread/rubico"
+# 零洗 + 2 正面无负的挂单中，各正面词条均价
+curl "http://127.0.0.1:8099/api/wfm/spread/rubico?rerolls_max=0&pos_min=2&neg_max=0&lang=zh"
 ```
 ```json
-{ "slug": "rubico", "samples": 499, "attributes": [
-  { "attribute": "multishot",       "avg_price": 4136, "samples": 270 },
-  { "attribute": "critical_chance", "avg_price": 3645, "samples": 309 },
-  { "attribute": "critical_damage", "avg_price": 3243, "samples": 333 }
-] }
+{
+  "slug": "rubico", "lang": "zh",
+  "filters": {
+    "rerolls": { "min": null, "max": 0 }, "rank": { "min": null, "max": null },
+    "mastery": { "min": null, "max": null }, "price": { "min": null, "max": null },
+    "pos": { "min": 2, "max": null }, "neg": { "min": null, "max": 0 },
+    "attr_pos": [], "attr_neg": [], "polarity": null, "status": "any"
+  },
+  "samples": 47,
+  "attributes": [
+    { "attribute": "critical_damage", "attribute_zh": "暴击伤害", "avg_price": 2599, "samples": 22 },
+    { "attribute": "critical_chance", "attribute_zh": "暴击率",    "avg_price": 1978, "samples": 28 }
+  ]
+}
 ```
+
+> 无筛选时 `samples` 为全部挂单数，聚合行为与旧版一致（仅补上 `filters` 回显与词条中文名）。

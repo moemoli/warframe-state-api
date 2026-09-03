@@ -115,7 +115,7 @@ QQ/TG/Discord...
 | `wiki <名>` | `wiki 绝路` | 复用 `/api/search?q=` | 取首个含 `wiki_link` 的结果，回复名称 + Wiki 链接（链接随 lang 自动切换 huiji/wiki.warframe.com/fandom） |
 | `掉落 <物品>` | `掉落 Forma` | `GET /api/items/{name}/drops` | 按 source_type 分组列出来源与概率 |
 | `wm <物品名>` | `wm 绝路` | search 解析 slug → `GET /api/wfm/items/{slug}` | 卖一/卖均/收一对比卡 + 前 3 单（价格·数量·状态）；未带 slug 先搜索取第一条 |
-| `wr` = `wmr` = `wk` <武器名> [筛选...] | `wr 绝路` / `wr 2+ 双暴 绝路` | `GET /api/wfm/rivens?name=` + `GET /api/wfm/auctions/{slug}` | 三指令**完全等价**（兼容兔子用户肌肉记忆）。无筛选=倾向值环形图·类型·段位·wiki；带筛选=拍卖挂单过滤（全语法见 §5.2.1） |
+| `wr` = `wmr` = `wk` <武器名> [筛选...] | `wr 绝路` / `wr 2+ 双暴 绝路` | `GET /api/wfm/rivens?name=` + `GET /api/wfm/auctions/{slug}?筛选参数` | 三指令**完全等价**（兼容兔子用户肌肉记忆）。带筛选=服务端过滤（AND）+ 命中 `total`/`matched_conditions` 逐条标注（全语法见 §5.2.1） |
 | `词条` | `词条` | `GET /api/wfm/rivens/attributes` | 全部 32 条：中文名 + 前缀/后缀 + 适用类型 |
 | `玄骸` | `玄骸 努寇` | `GET /api/wfm/liches?name=` | 赤毒武器列表/详情（名称·段位·wiki） |
 | `信条` | `信条 典客` | `GET /api/wfm/sisters?name=` | 姐妹武器列表/详情 |
@@ -130,9 +130,9 @@ QQ/TG/Discord...
 | `部件 [金/银/铜]` | `部件 金` | `GET /api/wfm/components?tier=` | 杜卡德性价比筛选：金100/银45/铜15，缺省全列 |
 | `排行 [甲/卡/部件]` | `甲排行` | `GET /api/wfm/rankings?type=` | 本服务查询热度 TopN（冷启动为空属正常） |
 
-#### 5.2.1 wr 全语法（紫卡拍卖筛选，已可实现）
+#### 5.2.1 wr 全语法（紫卡拍卖筛选，服务端执行）
 
-`wr` / `wmr` / `wk` 支持兔子式完整筛选语法，**全部在插件侧解析、服务端数据已齐备**：
+`wr` / `wmr` / `wk` 支持兔子式完整筛选语法，**插件解析口语 token → `GET /api/wfm/auctions/{slug}` 筛选参数（服务端 AND 过滤）**：
 
 ```
 wr <武器名> [最新|最近|离线] [极性槽] [价格p] [洗数] [词条] [2+|2+1|3+|3+1] [-页码]
@@ -141,15 +141,19 @@ wr 基多暴带负 绝路          → 基伤+多重+暴率，带 1 负面
 wr 零洗 1000p r槽 绝路      → 未洗、买断≤1000白金、Madurai 极性
 ```
 
-| 筛选维度 | 解析 | 匹配字段（auctions 端点） |
+| 筛选维度 | 插件 token → 服务端参数 | 服务端过滤字段 |
 |---|---|---|
 | 武器名 | `/api/wfm/rivens?name=` 解析 slug | 路径参数 `{slug}` |
-| 词条 | 中文简称→slug 词典（见下） | `attributes[].name_zh / name` |
-| N+/N+1/N+ | 数字解析 | 统计 attributes 中 negative=false/true 的数量 |
-| 洗数 | `零洗=0` `低洗≤5` `数字洗=N` | `rerolls` |
-| 价格 | `数字+p` | `price ≤ N` 且优先 `buyout=true` |
+| 词条 | 中文简称→slug 词典（见下） | `attr_pos`（须为正面）/ `attr_neg`（须为负面） |
+| N+/N+1/N+ | 数字解析 | `pos_min` / `neg_min` |
+| 洗数 | `零洗=0` `低洗≤5` `数字洗=N` | `rerolls_min/max` |
+| 段位/等级 | 预留 | `mastery_min/max`、`rank_min/max` |
+| 价格 | `数字+p` | `price_max`（买断价优先，无则起拍价） |
 | 极性槽 | `r槽=madurai` `-槽=naramon` `角槽=vazarin` `=槽=zenurik` | `polarity` |
 | 卖家状态 | `最新/在线`=`ingame,online`；`离线`=不过滤 | `status` |
+
+服务端对每条命中项回传 `matched_conditions`（该单满足的具体条件文案，
+如「正面含「暴击率」」「零洗」），插件标题/副标题直接展示。
 
 **词条中文词典**：首次使用时拉取 `/api/wfm/rivens/attributes?lang=zh` 构建
 `{效果中文名 → url_name}` 映射（32 条），并在插件内叠加社区短名别名表
