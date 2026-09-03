@@ -395,7 +395,7 @@ class Poller:
 
     def __init__(self, client, emit_fn, store: SubStore, interval_base: float = 30.0):
         self.client = client
-        # async emit(session:str, title:str, lines:list[str], at_id=None, at_name=None) -> None
+        # async emit(session:str, title:str, lines:list[str], ats:list[tuple[str,str]]|None=None) -> None
         self.emit = emit_fn
         self.store = store
         self.base = interval_base
@@ -456,59 +456,78 @@ class Poller:
                 else data.get("void_trader")
             self._last_tick["vt"] = now
 
+        # 命中聚合表：(session, kind, key) → {lines, ats, subs}
+        # 防重按 session 维度（同一 session 同一事件只推一次，跨 session 各自推）
+        pending: dict[tuple[str, str, str], dict] = {}
+
+        def session_key(kind: str, key: str, session: str) -> str:
+            return f"{session}|{kind}|{key}"
+
         for sub in subs:
             kind = sub["kind"]
             cond = sub.get("cond") or {}
+            session = sub["session"]
+            # 命中聚合：同一 session 同一事件（key）→ 一条消息 @ 所有订阅者
+            def collect(key: str, lines: list[str]) -> bool:
+                g = pending.setdefault((session, kind, key), {
+                    "lines": lines, "ats": [], "subs": [],
+                })
+                if g["lines"] != lines:
+                    g["lines"] = lines
+                at = sub.get("at") or {}
+                if at.get("id") and at["id"] not in {a[0] for a in g["ats"]}:
+                    g["ats"].append((str(at["id"]), at.get("name") or ""))
+                g["subs"].append(sub)
+                return True
+
             if kind == "fissure" and fissures is not None:
                 for entry in fissures:
                     k = hit_key_fissure(entry)
-                    if match_fissure(cond, entry) and not self.store.seen_has(k):
-                        self.store.seen_add(k)
-                        await self._emit_hit(sub, [
+                    if match_fissure(cond, entry) and not self.store.seen_has(
+                            session_key(kind, k, session)):
+                        collect(k, [
                             f"{('钢铁·' if entry.get('hard') else '')}"
                             f"{(entry.get('modifier') or {}).get('name','')}",
                             f"{(entry.get('node') or {}).get('name','?')} · "
                             f"{(entry.get('mission_type') or {}).get('name','?')}",
-                        ], k)
+                        ])
                         break
             elif kind == "void_storm" and void_storms is not None:
                 for entry in void_storms:
                     k = hit_key_void_storm(entry)
-                    if match_void_storm(cond, entry) and not self.store.seen_has(k):
-                        self.store.seen_add(k)
-                        await self._emit_hit(sub, [
+                    if match_void_storm(cond, entry) and not self.store.seen_has(
+                            session_key(kind, k, session)):
+                        collect(k, [
                             f"虚空风暴 {(entry.get('tier') or {}).get('name','?')}",
                             f"{(entry.get('node') or {}).get('name','?')} · "
                             f"{(entry.get('mission_type') or {}).get('name','?')}",
-                        ], k)
+                        ])
                         break
             elif kind == "arbitration" and arbitrations is not None:
                 if match_arbitration(cond, arbitrations):
                     k = hit_key_arbitration(arbitrations)
-                    if sub.get("last_hit_key") != k and not self.store.seen_has(k):
-                        self.store.seen_add(k)
+                    if sub.get("last_hit_key") != k and not self.store.seen_has(
+                            session_key(kind, k, session)):
                         sub["last_hit_key"] = k
-                        self.store.save()
                         node = arbitrations.get("node") or {}
-                        await self._emit_hit(sub, [
+                        collect(k, [
                             f"仲裁 {node.get('name','?')} · "
                             f"{(node.get('system') or {}).get('name','?')}",
                             f"{arbitrations.get('mission_type','?')} "
                             f"(Lv{((arbitrations.get('enemy_levels') or {}).get('min','?'))}"
                             f"-{((arbitrations.get('enemy_levels') or {}).get('max','?'))})",
-                        ], k)
+                        ])
             elif kind == "cycle" and cycles is not None:
                 for cyc in cycles:
                     if match_cycle(cond, cyc):
                         k = hit_key_cycle(cyc)
-                        if sub.get("last_hit_key") != k and not self.store.seen_has(k):
-                            self.store.seen_add(k)
+                        if sub.get("last_hit_key") != k and not self.store.seen_has(
+                                session_key(kind, k, session)):
                             sub["last_hit_key"] = k
-                            self.store.save()
-                            await self._emit_hit(sub, [
+                            collect(k, [
                                 f"{cyc.get('name_zh') or cyc.get('name','')} → {cyc.get('state_name','')}",
                                 f"剩余 {cyc.get('remaining','?')}",
-                            ], k)
+                            ])
                         break
             elif kind == "void_trader" and vt:
                 k = hit_key_vt(vt)
@@ -519,24 +538,30 @@ class Poller:
                         tzinfo=None) <= datetime.utcnow()
                 except Exception:
                     arrived = False
-                if arrived and not self.store.seen_has(k):
-                    self.store.seen_add(k)
-                    await self._emit_hit(sub, [
+                if arrived and not self.store.seen_has(
+                        session_key(kind, k, session)):
+                    collect(k, [
                         f"{vt.get('character','Baro')} 已到达 {((vt.get('node') or {}).get('name')) or '?'}",
-                    ], k)
+                    ])
 
-    async def _emit_hit(self, sub: dict, lines: list[str], key: str):
+        # 逐组推送：一条消息 @ 该组全部订阅者
+        for (session, kind, key), g in pending.items():
+            await self._emit_hit_group(session, g["lines"], g["ats"])
+            # 推送后按 session 防重（同一 session 同一事件不再推）
+            self.store.seen_add(session_key(kind, key, session))
+            for sub in g["subs"]:
+                if sub.get("expire_at") == -1:
+                    pass  # 永久
+                elif sub.get("expire_at") is None:
+                    self.store.mark_done(sub)     # 命中一次即删
+            self.store.save()
+
+    async def _emit_hit_group(self, session: str, lines: list[str], ats: list[tuple[str, str]]):
+        """按组推送：同一条消息 @ 组内全部命中订阅者。"""
         title = "🔔 订阅命中"
-        at = sub.get("at") or {}
         try:
-            await self.emit(sub["session"], title,
+            await self.emit(session, title,
                             lines + ["（发送『蹲 取消』可清空）"],
-                            at_id=at.get("id"), at_name=at.get("name"))
+                            ats=ats)
         except Exception as e:
             logger.warning(f"[wf-sub] 推送失败: {e}")
-            return
-        if sub.get("expire_at") == -1:
-            pass  # 永久
-        elif sub.get("expire_at") is None:
-            self.store.mark_done(sub)     # 命中一次即删
-        self.store.save()

@@ -1242,33 +1242,52 @@ class WarframePlugin(Star):
                 yield m
 
     async def _push_text(self, session: str, title: str, lines: list[str],
-                         at_id: str | None = None, at_name: str | None = None):
-        """订阅命中推送：固定纯文本 + @订阅者（不渲染图片）。"""
+                         ats: list[tuple[str, str]] | None = None):
+        """订阅命中推送：固定纯文本 + @全部命中订阅者（不渲染图片）。
+
+        ats: [(id, name), ...]。QQ 官方平台 At 组件会被平台丢弃，
+        改为把 `<qqbot-at-user id="..." />` 文本拼入消息内容（text-chain 规范）；
+        其它平台使用 At 组件。
+        """
         text = f"【{title}】\n" + "\n".join(lines)
         if Plain is None:
             logger.info(f"[wf-sub] 推送(无通道回显): {session} {text}")
             return
+
+        is_qq_official = str(session).split(":")[0] == "qq_official"
+        ats = [a for a in (ats or []) if a and a[0]]
+        chain_items = []
+        prefix = ""
+
+        if is_qq_official:
+            # QQ 官方：文本消息 @ 采用 <qqbot-at-user id="openid" /> 语法
+            # （At 组件在平台发送路径会被忽略，参考 text-chain 文档）
+            if ats:
+                prefix = "".join(f'<qqbot-at-user id="{aid}" />' for aid, _ in ats) + " "
+        else:
+            for aid, aname in ats:
+                try:
+                    chain_items.append(At(qq=str(aid), name=aname))
+                except TypeError:
+                    chain_items.append(At(qq=str(aid)))
+            if chain_items:
+                prefix = ""
+                text = "\n" + text          # @ 后换行再接正文
+
         try:
             from astrbot.core.message.message_event_result import MessageChain
         except Exception as e:
             logger.warning(f"[wf-sub] MessageChain 导入失败: {e}")
             return
 
-        chain_items = []
-        if at_id and At is not None:
-            try:
-                chain_items.append(At(qq=str(at_id), name=at_name))
-            except TypeError:
-                chain_items.append(At(qq=str(at_id)))
-            text = "\n" + text          # @ 后换行再接正文
-        chain_items.append(Plain(text))
-
+        chain_items.append(Plain(prefix + text))
         try:
             await self.context.send_message(session, MessageChain(chain=chain_items))
         except Exception as e:
             # At 组件导致平台拒绝时退回纯文本
             logger.warning(f"[wf-sub] 带@推送失败({e})，退回纯文本")
             try:
-                await self.context.send_message(session, MessageChain(chain=[Plain(text)]))
+                await self.context.send_message(
+                    session, MessageChain(chain=[Plain(text)]))
             except Exception as e2:
                 logger.error(f"[wf-sub] 推送失败: {e2}")
